@@ -43,7 +43,10 @@ a mini.
   a refused board; the tester kit is what admits it. A testing board may list
   in `gates` the live gates that admit it, each with hardware evidence from that
   board (the J715 lists `g16` and `m4-session-placement`, #142). Every other
-  gate refuses it.
+  gate refuses it. `m4-cpu-idle` is not in the gate tests (it takes its lock
+  under `/var/lib` before the board check); it loads the idle driver on the
+  J715 and the boost guard only on the J713, which `tests/test_m4_cpu_idle.py`
+  checks.
 - `refused`: nothing installs or runs on it.
 
 ## What the board tests check

@@ -207,6 +207,17 @@ file.
   lowest state. Guard `j713_pguard.ko` `91fe247e…`, pinned in
   `package-inputs` and `cpu_guard_module`.
 
+### omarchy-m4-cpu 1-4
+
+- **CPU idle on the 15-inch Air** (J715, a testing board, #142): `m4-cpu-idle`
+  loads `j713_cpuidle.ko` on the J715 as on the J713; both use the same T8132
+  cores and idle states. On one J715 all ten cores ran in `j713_idle` and the
+  idle draw fell from 14.8 W to 9.3 W.
+- **The boost guard stays J713-only.** On the J715 the helper never loads
+  `j713_pguard.ko`, resets trips raised by hand as before, and refuses
+  `--boost on`; P stays at 1800 MHz behind the boost gate.
+- Modules unchanged (`a2a7947a…`, `91fe247e…`).
+
 ### omarchy-m4-headphones 1-2
 
 - **The headset microphone on the headphone jack**

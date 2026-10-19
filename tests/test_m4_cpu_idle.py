@@ -445,6 +445,53 @@ class CpuIdleLoad(unittest.TestCase):
         self.assertEqual(self.run_mode('start', again)['status'], 'current')
         self.assertEqual(again.commands, [])
 
+    def j715(self):
+        self.put(MODULE.COMPATIBLE, b'apple,j715\0apple,t8132\0apple,arm-platform\0')
+
+    def test_j715_loads_idle_but_never_the_guard(self):
+        self.j715()
+        self.boost_ready()
+        machine = Machine(self.root)
+        report = self.run_mode('boot', machine)
+        self.assertEqual(machine.commands, [self.idle_insmod()], 'the guard is measured only on the J713')
+        self.assertEqual(machine.slept, [(120, True)])
+        self.assertFalse(self.marker().exists())
+        self.assertEqual((report['state'], report['gate'], self.gate(), self.sustain()),
+                         ('loaded', 'closed', '20000', '95000'))
+        self.assertEqual(report['boost'], 'not measured on this board; P stays at 1800 MHz')
+        self.assertEqual(report['status'], 'loaded; idle cores power down; boost not measured on this board; '
+                                           'P stays at 1800 MHz')
+
+    def test_j715_resets_trips_raised_by_hand(self):
+        self.j715()
+        self.boost_ready(gate='150000')
+        self.put(SUSTAIN_TRIP, b'100000\n')
+        machine = Machine(self.root)
+        self.run_mode('boot', machine)
+        self.assertEqual(machine.commands, [self.idle_insmod()])
+        self.assertEqual((self.gate(), self.sustain()), ('20000', '95000'), 'no guard is behind an open gate')
+
+    def test_j715_boost_on_is_refused_and_boost_off_still_closes(self):
+        self.j715()
+        self.boost_ready()
+        self.run_mode('boot', Machine(self.root))
+        self.run_mode('boost-off', Machine(self.root))
+        hold = self.root / MODULE.STATE / 'boost-hold'
+        self.assertTrue(hold.exists())
+        with self.assertRaisesRegex(MODULE.Refused, 'measured only on the J713'):
+            self.run_mode('boost-on', Machine(self.root))
+        self.assertTrue(hold.exists(), 'a refused boost-on changes nothing')
+        self.assertEqual((self.gate(), self.sustain()), ('20000', '95000'))
+
+    def test_j715_start_never_adds_the_guard(self):
+        self.j715()
+        self.boost_ready()
+        self.run_mode('boot', Machine(self.root))
+        machine = Machine(self.root)
+        report = self.run_mode('start', machine)
+        self.assertEqual(machine.commands, [])
+        self.assertEqual((report['state'], self.gate()), ('loaded', '20000'))
+
     def test_boost_switch_needs_root_and_one_action(self):
         with mock.patch.object(MODULE.os, 'geteuid', return_value=1000), \
                 mock.patch.object(MODULE, 'run') as run:

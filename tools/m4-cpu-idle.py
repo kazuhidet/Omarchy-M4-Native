@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 KB2UKA
-"""Load the J713 CPU idle driver and P-cluster boost guard (omarchy-m4-cpu, #65, #66).
+"""Load the M4 Air CPU idle driver and the J713 P-cluster boost guard (omarchy-m4-cpu, #65, #66).
 
 m4-cpu-idle.service runs this with --boot. It loads j713_cpuidle, which lets
 idle cores power down instead of spinning under idle=nop. Only the pinned
@@ -15,6 +15,12 @@ or fails to load leaves the gate closed and P at 1800 MHz; CPU idle still
 loads. With boost on, real-time tasks get the 1800 MHz floor they had before
 instead of the cluster maximum (RT_FLOOR), and the guard has raised the CPU
 die zone's sustained trip from 95 C to 100 C.
+
+The idle driver loads on the J713 and on the 15-inch J715 (a testing board,
+#142), which has the same T8132 cores and idle states. The boost guard loads
+only on the J713: its step and fast-heat tables were measured in that chassis,
+and the J715 runs warmer. On the J715 the boost gate stays closed and P stays at
+1800 MHz; --boost on is refused there.
 
 One strike: an attempt marker is written durably before the module loads and
 removed only after the cores have idled through it for a settle period. A
@@ -44,7 +50,8 @@ import sys
 import time
 
 RELEASE = '7.1.9-m4-gpu-backport-20261008'
-BOARD = b'apple,j713'
+BOARDS = (b'apple,j713', b'apple,j715')  # the idle driver
+GUARD_BOARDS = (b'apple,j713',)  # the boost guard: its tables were measured in the J713 chassis
 COMPATIBLE = 'sys/firmware/devicetree/base/compatible'
 OSRELEASE = 'proc/sys/kernel/osrelease'
 CURRENT_DRIVER = 'sys/devices/system/cpu/cpuidle/current_driver'
@@ -176,6 +183,8 @@ def gate_trip(root):
 
 
 def boost_state(report):
+    if not report['guard_board']:
+        return 'not measured on this board; P stays at 1800 MHz'
     if report['guard_loaded'] and report['gate'] == 'open':
         return 'on'
     if report['boost_held']:
@@ -190,8 +199,10 @@ def boost_state(report):
 def inspect(root):
     compatible = root / COMPATIBLE
     release = root / OSRELEASE
+    names = compatible.read_bytes().split(b'\0') if compatible.is_file() else []
     report = {
-        'board': compatible.is_file() and BOARD in compatible.read_bytes().split(b'\0'),
+        'board': any(board in names for board in BOARDS),
+        'guard_board': any(board in names for board in GUARD_BOARDS),
         'kernel': release.is_file() and release.read_text().strip() == RELEASE,
         'staged': pinned(root / STAGED, PIN),
         'loaded': (root / 'sys/module' / NAME).exists(),
@@ -237,6 +248,8 @@ def load_guard(root, report, run):
         set_boost_trips(root, False)
     if report['boost_held']:
         return None
+    if not report['guard_board']:
+        return 'boost not measured on this board; P stays at 1800 MHz'
     if report['gate'] == 'absent':
         return 'boost waits for the boost devicetree'
     if not report['guard_staged']:
@@ -252,7 +265,7 @@ def joined(*parts):
 
 
 def load(root, report, run, settle_seconds, sleep):
-    require(report['board'], 'This is not a J713 MacBook Air')
+    require(report['board'], 'This is not a J713 or J715 MacBook Air')
     require(report['kernel'], 'The running kernel is not ' + RELEASE)
     require(report['staged'], 'Staged j713_cpuidle.ko is missing or differs from the pin')
     require(report['driver'] in (None, 'none'),
@@ -274,7 +287,8 @@ def load(root, report, run, settle_seconds, sleep):
 
 def start_guard(root, report, run, settle_seconds, sleep):
     """In a running session with the idle driver loaded, load the guard under the attempt marker."""
-    if report['guard_loaded'] or report['boost_held'] or report['gate'] == 'absent':
+    if (not report['guard_board'] or report['guard_loaded'] or report['boost_held']
+            or report['gate'] == 'absent'):
         return None
     write_state(root, 'attempt', 'loading the P-cluster boost guard\n')
     try:
@@ -338,6 +352,7 @@ def boost(root, mode):
         set_boost_trips(root, False)
         restore_rt_floor(root)
     else:
+        require(inspect(root)['guard_board'], 'The P-cluster boost is measured only on the J713; P stays at 1800 MHz')
         remove_state(root, 'boost-hold')
         report = inspect(root)
         if report['guard_loaded']:
