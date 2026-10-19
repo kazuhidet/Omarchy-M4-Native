@@ -8,6 +8,7 @@ loaders in audio/j713/bootstrap and audio/j713/topology stay as released (the
 release source joins pin them at the alpha.1 tag); audio/j715 carries their
 J715 copies, which differ only where they use the board header.
 """
+import configparser
 import hashlib
 from pathlib import Path
 import re
@@ -162,6 +163,45 @@ class Loaders(unittest.TestCase):
                 subprocess.run(['dtc', '-q', '-I', 'dts', '-O', 'dtb', '-o', str(out), str(source)], check=True)
                 self.assertEqual(blob(header), out.read_bytes())
 
+
+
+class Daemon(unittest.TestCase):
+    SSD = J713 / 'speakersafetyd'
+
+    def test_feature_selects_channels_and_machine(self):
+        self.assertIn('[features]\n# Build for the 15-inch Air (J715): twelve feedback channels, apple,j715 only.\nj715 = []\n',
+                      (self.SSD / 'Cargo.toml').read_text())
+        source = (self.SSD / 'src/j713.rs').read_text()
+        self.assertIn('pub const CHANNELS: usize = if cfg!(feature = "j715") { 12 } else { 8 }; '
+                      'pub const MACHINE: &str = if cfg!(feature = "j715") { "apple,j715" } else { "apple,j713" };', source)
+        self.assertIn('let j713 = machine == j713::MACHINE;', (self.SSD / 'src/main.rs').read_text())
+        helpers = (self.SSD / 'src/helpers.rs').read_text()
+        self.assertEqual(helpers.count('crate::j713::CHANNELS as u32'), 2)
+        self.assertNotRegex(helpers, r'set_channels\(8\)|get_channels\(\)\.unwrap\(\), 8\)')
+
+    def test_j715_model(self):
+        j713, j715 = configparser.ConfigParser(), configparser.ConfigParser()
+        j713.read(J713 / 'j713.conf')
+        j715.read(J715 / 'j715.conf')
+        self.assertEqual(j715['Globals']['channels'], '12')
+        for key in ('visense_pcm', 'period', 't_ambient', 't_window', 't_hysteresis'):
+            self.assertEqual(j715['Globals'][key], j713['Globals'][key])
+        self.assertEqual(dict(j715['Controls']), dict(j713['Controls']))
+        speakers = [s for s in j715.sections() if s.startswith('Speaker/')]
+        self.assertEqual(speakers, ['Speaker/Left Woofer 1', 'Speaker/Right Woofer 1', 'Speaker/Left Tweeter',
+                                    'Speaker/Right Tweeter', 'Speaker/Left Woofer 2', 'Speaker/Right Woofer 2'])
+        tweeter = j713['Speaker/Left Tweeter']
+        for index, name in enumerate(speakers):
+            s = j715[name]
+            with self.subTest(speaker=name):
+                self.assertEqual((int(s['vs_chan']), int(s['is_chan'])), (2 * index, 2 * index + 1))
+                self.assertEqual(int(s['group']), 1 if 'Tweeter' in name else 0)
+                self.assertEqual((float(s['t_limit']), float(s['t_headroom'])), (120.0, 5.0))
+                self.assertEqual((float(s['vs_scale']), float(s['is_scale'])), (14.0, 3.75))
+                # AID38's lowest Reb per channel; every one is below one unit's 3.696 ohm calibration.
+                self.assertLess(float(s['z_nominal']), 3.696)
+                if 'Tweeter' in name:
+                    self.assertEqual((s['tr_coil'], s['tr_magnet']), (tweeter['tr_coil'], tweeter['tr_magnet']))
 
 if __name__ == '__main__':
     unittest.main()
