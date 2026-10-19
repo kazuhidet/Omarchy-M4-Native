@@ -1,0 +1,166 @@
+{
+  "node.description": "J715 protected speakers",
+  "media.name": "J715 protected speakers",
+  "filter.graph": {
+    "nodes": [
+      {
+        "type": "builtin",
+        "label": "clamp",
+        "name": "inputL",
+        "control": {
+          "Min": -1.0,
+          "Max": 1.0
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "clamp",
+        "name": "inputR",
+        "control": {
+          "Min": -1.0,
+          "Max": 1.0
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "lane0",
+        "config": {
+          "filename": "/usr/share/asahi-audio/j715/j715-spk3-static-minimal-lane0-48000.wav",
+          "channel": 0,
+          "gain": 0.336,
+          "blocksize": 128
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "lane1",
+        "config": {
+          "filename": "/usr/share/asahi-audio/j715/j715-spk3-static-minimal-lane1-48000.wav",
+          "channel": 0,
+          "gain": 0.336,
+          "blocksize": 128
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "lane2",
+        "config": {
+          "filename": "/usr/share/asahi-audio/j715/j715-spk3-static-minimal-lane2-48000.wav",
+          "channel": 0,
+          "gain": 0.336,
+          "blocksize": 128
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "lane3",
+        "config": {
+          "filename": "/usr/share/asahi-audio/j715/j715-spk3-static-minimal-lane3-48000.wav",
+          "channel": 0,
+          "gain": 0.336,
+          "blocksize": 128
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "lane4",
+        "config": {
+          "filename": "/usr/share/asahi-audio/j715/j715-spk3-static-minimal-lane4-48000.wav",
+          "channel": 0,
+          "gain": 0.336,
+          "blocksize": 128
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "lane5",
+        "config": {
+          "filename": "/usr/share/asahi-audio/j715/j715-spk3-static-minimal-lane5-48000.wav",
+          "channel": 0,
+          "gain": 0.336,
+          "blocksize": 128
+        }
+      }
+    ],
+    "links": [
+      {
+        "output": "inputL:Out",
+        "input": "lane0:In"
+      },
+      {
+        "output": "inputR:Out",
+        "input": "lane1:In"
+      },
+      {
+        "output": "inputL:Out",
+        "input": "lane2:In"
+      },
+      {
+        "output": "inputR:Out",
+        "input": "lane3:In"
+      },
+      {
+        "output": "inputL:Out",
+        "input": "lane4:In"
+      },
+      {
+        "output": "inputR:Out",
+        "input": "lane5:In"
+      }
+    ],
+    "inputs": [
+      "inputL:In",
+      "inputR:In"
+    ],
+    "outputs": [
+      "lane0:Out",
+      "lane1:Out",
+      "lane2:Out",
+      "lane3:Out",
+      "lane4:Out",
+      "lane5:Out"
+    ]
+  },
+  "capture.props": {
+    "node.name": "audio_effect.j715-protected",
+    "media.class": "Audio/Sink",
+    "audio.channels": 2,
+    "audio.position": [
+      "FL",
+      "FR"
+    ],
+    "audio.rate": 48000,
+    "audio.allowed-rates": [
+      48000
+    ],
+    "node.virtual": false
+  },
+  "playback.props": {
+    "node.name": "effect_output.j715-protected",
+    "target.object": "alsa_output.j715.RawSpeakers",
+    "node.dont-fallback": true,
+    "node.passive": true,
+    "stream.dont-remix": true,
+    "channelmix.lock-volumes": true,
+    "channelmix.max-volume": 1.0,
+    "audio.channels": 6,
+    "audio.position": [
+      "AUX0",
+      "AUX1",
+      "AUX2",
+      "AUX3",
+      "AUX4",
+      "AUX5"
+    ],
+    "audio.rate": 48000,
+    "audio.allowed-rates": [
+      48000
+    ]
+  }
+}
