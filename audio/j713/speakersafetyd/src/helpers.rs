@@ -45,7 +45,7 @@ pub fn open_j713_pcm(dev: &str) -> alsa::pcm::PCM {
     let pcm = alsa::pcm::PCM::new(dev, alsa::Direction::Capture, false).unwrap();
     {
         let params = alsa::pcm::HwParams::any(&pcm).unwrap();
-        params.set_channels(8).unwrap();
+        params.set_channels(crate::j713::CHANNELS as u32).unwrap();
         params.set_rate(48000, alsa::ValueOr::Nearest).unwrap();
         params.set_format(alsa::pcm::Format::s16()).unwrap();
         params.set_access(alsa::pcm::Access::RWInterleaved).unwrap();
@@ -53,7 +53,7 @@ pub fn open_j713_pcm(dev: &str) -> alsa::pcm::PCM {
         params.set_buffer_size(crate::j713::BUFFER_FRAMES as i64).unwrap();
         pcm.hw_params(&params).unwrap();
         let actual = pcm.hw_params_current().unwrap();
-        assert_eq!(actual.get_channels().unwrap(), 8);
+        assert_eq!(actual.get_channels().unwrap(), crate::j713::CHANNELS as u32);
         assert_eq!(actual.get_rate().unwrap(), 48000);
         assert_eq!(actual.get_period_size().unwrap(), crate::j713::FRAMES as i64);
         assert_eq!(actual.get_buffer_size().unwrap(), crate::j713::BUFFER_FRAMES as i64);

@@ -16,5 +16,9 @@ simple_logger = { version = "^5.2.0", default-features = false }
 signal-hook = "^0.4.4"
 libc = "^0.2.185"
 
+[features]
+# Build for the 15-inch Air (J715): twelve feedback channels, apple,j715 only.
+j715 = []
+
 [patch.crates-io]
 alsa = { path = "vendor/alsa" }

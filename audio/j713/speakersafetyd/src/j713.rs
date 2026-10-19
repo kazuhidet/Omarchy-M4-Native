@@ -7,7 +7,7 @@ pub const FRAMES: usize = 1024;
 pub const BUFFER_FRAMES: usize = 2048;
 const MODEL_FRAMES: usize = 512;
 const MAX_BACKLOG: i64 = 512;
-const CHANNELS: usize = 8;
+pub const CHANNELS: usize = if cfg!(feature = "j715") { 12 } else { 8 }; pub const MACHINE: &str = if cfg!(feature = "j715") { "apple,j715" } else { "apple,j713" };
 const RATE: u64 = 48000;
 const LEASE_NS: u64 = 50_000_000;
 
@@ -156,6 +156,7 @@ mod tests {
         assert!(s.period(1, 1, FRAMES, 0, 10_666_667, false, 48000));
         s
     }
+    #[cfg(not(feature = "j715"))]
     #[test]
     fn candidate_profile_geometry_and_models() {
         let mut c = configparser::ini::Ini::new_cs();
@@ -240,5 +241,33 @@ mod tests {
         }
         let mut s=ready();s.sequence=i64::MAX;
         assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(||s.renewal(1,0,1))).is_err());
+    }
+    #[cfg(feature = "j715")]
+    #[test]
+    fn j715_profile_geometry_and_models() {
+        assert_eq!((CHANNELS, MACHINE), (12, "apple,j715"));
+        let mut c = configparser::ini::Ini::new_cs();
+        c.read(include_str!("../../../j715/j715.conf").to_string()).unwrap();
+        let g = crate::types::Globals::parse(&c);
+        assert_eq!((g.channels, g.period, g.visense_pcm), (12, 1024, 0));
+        assert_eq!(g.t_ambient, 50.0);
+        // (name, group, tr_coil, tr_magnet, tau_coil, tau_magnet, z_nominal), in ADT amplifier order.
+        let speakers = [("Left Woofer 1", 0, 40.0, 26.0, 3.0, 35.0, 3.375), ("Right Woofer 1", 0, 40.0, 26.0, 3.0, 37.0, 3.484),
+                        ("Left Tweeter", 1, 140.0, 200.0, 1.8, 28.0, 3.185), ("Right Tweeter", 1, 140.0, 200.0, 1.8, 28.0, 3.304),
+                        ("Left Woofer 2", 0, 35.0, 24.5, 3.0, 35.0, 3.485), ("Right Woofer 2", 0, 35.0, 24.5, 3.0, 35.0, 3.576)];
+        for (index, s) in speakers.iter().enumerate() {
+            let section = format!("Speaker/{}", s.0);
+            assert_eq!(crate::helpers::parse_int::<usize>(&c, &section, "vs_chan"), index * 2);
+            assert_eq!(crate::helpers::parse_int::<usize>(&c, &section, "is_chan"), index * 2 + 1);
+            assert_eq!(crate::helpers::parse_int::<usize>(&c, &section, "group"), s.1);
+            for (key, val) in [("tr_coil",s.2),("tr_magnet",s.3),("tau_coil",s.4),("tau_magnet",s.5),("z_nominal",s.6),("t_limit",120.0),("t_headroom",5.0),("vs_scale",14.0),("is_scale",3.75)] {
+                assert_eq!(crate::helpers::parse_float(&c, &section, key), val);
+            }
+        }
+    }
+    #[cfg(not(feature = "j715"))]
+    #[test]
+    fn j713_build_constants() {
+        assert_eq!((CHANNELS, MACHINE), (8, "apple,j713"));
     }
 }

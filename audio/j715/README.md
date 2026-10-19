@@ -14,6 +14,7 @@ stay as released (the release source joins pin them at the alpha.1 tag).
 | `bootstrap/` | `j713_audio_bootstrap.ko` for the J715: the J713 loader built with `-DM4_AUDIO_J715`, applying `j715-cold-transport.dtso` |
 | `topology/` | `j713_audio_dt3.ko` for the J715: the J713 loader built with `-DM4_AUDIO_J715`, applying `j715-audio.dtso` |
 | `*/m4-audio-board.h` | The same board header as `../j713/kernel/` |
+| `j715.conf` | The speakersafetyd model for `apple,j715` |
 
 The module names stay the J713 ones; the J715 build admits only `apple,j715`.
 
@@ -47,9 +48,40 @@ on an aarch64 host matched, section for section, the ones one J715 has played
 protected audio with; only the compiler identification and the build ID
 differ.
 
+## Speaker protection daemon
+
+`../j713/speakersafetyd` built with `--features j715` reads twelve feedback
+channels and uses the lease only on `apple,j715`; without the feature it is
+the J713 daemon. Its tests (`cargo test --features j715`) check `j715.conf`.
+The daemon finds the model at `apple/j715.conf` under its config directory.
+
+`j715.conf` takes each channel's thermal values from macOS's AID38
+SpeakerProtect (spp3) data, which, unlike the J713's AID37, has them. The
+mapping is `T_sett_vc` → `tr_coil`, `T_sett_mg` → `tr_magnet`, `tau_Tvc` →
+`tau_coil` and `tau_Tmg` → `tau_magnet`. That the units are the same is
+inferred, not documented by Apple: the daemon's values are °C/W and seconds
+in a coil-over-magnet model of the same structure, the AID38 values have the
+J713 candidate's magnitudes, and AID38's ambient (50 °C) and V/I scales
+(14, 3.75) equal the J713 model's exactly. Three choices are
+more conservative than AID38:
+
+- the tweeters keep the J713 candidate `tr_coil`/`tr_magnet` 140/200 (AID38:
+  124/89.8 and 129/87.2), which allows them less power;
+- `t_limit` stays the J713 candidate 120 °C (AID38: 140 °C);
+- `z_nominal` is AID38's lowest `Reb` for each channel (3.185 to 3.576 Ω), not
+  one unit's calibration; it only scales the startup peak-power bound, and a
+  lower value lets the daemon attenuate further.
+
+On 2026-10-19 on an aarch64 host (cargo 1.93.1, the locked offline registry):
+the daemon built and passed its tests both ways (9 without the feature,
+including the J713 model test; 8 with it, including the J715 one). Without the feature, its code and
+read-only data are those of the daemon built from the sources before this
+change; it differs only in one panic message column (`set_channels`) and in
+LLVM's internal symbol suffixes. The daemon one J715 ran protected playback
+with was built from the same changes with another toolchain, and used one
+unit's 3.696 Ω for every `z_nominal`.
+
 ## Not here yet
 
-The J715 speaker protection profile (speakersafetyd with twelve feedback
-channels and the J715 thermal values), the six-lane filters, the routing
-policy and a delivery path. Until those land, nothing in this repository
-loads these modules.
+The six-lane filters, the routing policy and a delivery path. Until those
+land, nothing in this repository loads these modules or this model.
