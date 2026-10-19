@@ -134,7 +134,7 @@
       "sources": [
         {
           "tree": "audio/j713/kernel",
-          "commit": "1114297c752c1c1e5245ce7a4f85507f4c53fcf7"
+          "commit": "d2d70cdb72b14bae1aaacc4b43e919bb0f615cc9"
         },
         {
           "archive": "source/kernel-controller.tar.gz",
