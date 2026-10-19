@@ -39,8 +39,11 @@ a mini.
   board here needs boot evidence from that board.
 - `testing`: a board testers may install before it is qualified, from a kit
   built for that board and only with the tester's explicit opt-in. It needs an
-  installer profile. The J713 release, its `Install.command` and every live
-  gate refuse it like a refused board; the tester kit is what admits it.
+  installer profile. The J713 release and its `Install.command` refuse it like
+  a refused board; the tester kit is what admits it. A testing board may list
+  in `gates` the live gates that admit it, each with hardware evidence from that
+  board (the J715 lists `g16` and `m4-session-placement`, #142). Every other
+  gate refuses it.
 - `refused`: nothing installs or runs on it.
 
 ## What the board tests check
@@ -57,9 +60,11 @@ a mini.
   directories names a board compatible (`apple,j…`) that is neither qualified
   nor testing;
 - the GPU module's Air bootstrap gate (`gpu/j713/asahi/g16.rs`) admits an
-  unqualified board or refuses a qualified one;
+  unqualified board or refuses a qualified one, apart from a testing board that
+  lists `g16`;
 - a live-system board gate lets a real sibling M4 identity through, refuses it
-  with a different message, or writes anything before refusing. The gates are
+  with a different message, or writes anything before refusing; a testing board
+  that lists the gate must pass it like a qualified board instead. The gates are
   `m4-boot-compose`, `m4-channel-setup`, `m4-headphones`, `m4-lid-lock`,
   `m4-session-placement`, `m4-j713-audio-ready`, `m4-j713-audio-register`,
   `m4-j713-owner-assets` (its fixed paths redirected into the fixture) and the

@@ -24,8 +24,9 @@ import tempfile
 import unittest
 import unittest.mock
 
-from m4_board_identities import (BOARDS, FOREIGN_SOC, NEAR_MISS_BOARD, NEAR_MISS_SOC, QUALIFIED, ROOT, SOC, SOCS,
-                                 TABLE, TABLE_PATH, TESTING, UNQUALIFIED, identity, refused_identities)
+from m4_board_identities import (BOARDS, FOREIGN_SOC, GATE_IDS, NEAR_MISS_BOARD, NEAR_MISS_SOC, QUALIFIED, ROOT,
+                                 SOC, SOCS, TABLE, TABLE_PATH, TESTING, UNQUALIFIED, admits, identity,
+                                 refused_identities)
 from test_j713_gpu_air_gate import SOURCE as G16, item
 
 DOC = ROOT / 'docs/m4-boards.md'
@@ -79,6 +80,12 @@ class BoardTable(unittest.TestCase):
                 installer = board['installer']
                 if installer is not None:
                     self.assertEqual(set(installer), {'stub', 'expert_only'})
+                self.assertLessEqual(set(board), {'target', 'compatible', 'soc', 'models', 'name', 'support',
+                                                  'installer', 'gates'})
+                if 'gates' in board:
+                    gates = board['gates']
+                    self.assertEqual(board['support'], 'testing', 'only a testing board lists its admitted gates')
+                    self.assertTrue(gates and len(gates) == len(set(gates)) and set(gates) <= set(GATE_IDS))
 
     def test_testing_boards_name_an_installer_profile(self):
         """A testing board is meant for a tester's kit, which needs a macOS stub to install."""
@@ -186,7 +193,7 @@ class BoardTable(unittest.TestCase):
 
 
 class GpuBoardGate(unittest.TestCase):
-    """The g16.rs Air bootstrap gate admits exactly the qualified boards."""
+    """The g16.rs Air bootstrap gate admits exactly the qualified boards and the testing boards listing g16."""
 
     def test_air_bootstrap_admits_only_qualified_boards(self):
         rustc = shutil.which('rustc')
@@ -199,7 +206,7 @@ class GpuBoardGate(unittest.TestCase):
         cases = ['const FW: &[u8] = b"mBoot-18000.120.36\\0";']
         for index, board in enumerate(BOARDS):
             literal = identity(board).decode().replace('\0', '\\0')
-            expected = 'true' if board['support'] == 'qualified' else 'false'
+            expected = 'true' if admits(board, 'g16') else 'false'
             cases.append(f'#[test] fn board_{index}_{board["target"].lower()}() {{\n'
                          f'    let board: &[u8] = b"{literal}";\n'
                          f'    assert_eq!(air_bootstrap_allowed(FW, board, 1, 0), {expected});\n'
@@ -276,7 +283,8 @@ def video_start_guards(root):
 
 
 # (name, call(root), exception the gate raises, board refusal message,
-#  SoC refusal message or None for a gate that checks only the board name)
+#  SoC refusal message or None for a gate that checks only the board name).
+# The first word of the name is the gate's id in GATE_IDS.
 GATES = (
     ('m4-boot-compose plan', COMPOSE.plan, COMPOSE.Refused, 'This is not a J713 MacBook Air', None),
     ('m4-boot-compose rollback', lambda root: COMPOSE.rollback(root, apply=True),
@@ -286,8 +294,8 @@ GATES = (
     ('m4-headphones boot', lambda root: HEADPHONES.run(root, 'boot', runner=never),
      HEADPHONES.Refused, 'This is not a J713 MacBook Air', None),
     ('m4-lid-lock run', lid_lock, LookupError, 'not a J713; nothing to do', None),
-    ('m4-session-placement layout', placement_layout, ValueError, 'qualified only for J713/T8132',
-     'qualified only for J713/T8132'),
+    ('m4-session-placement layout', placement_layout, ValueError, 'qualified only for J713/J715 and T8132',
+     'qualified only for J713/J715 and T8132'),
     ('m4-j713-audio-ready payload', lambda root: READY.payload(root, dict(schema=1, service=READY.SERVICE)),
      ValueError, 'Expected J713/T8132', 'Expected J713/T8132'),
     ('m4-j713-audio-register preflight', register_preflight, RuntimeError, 'Unsupported live board',
@@ -383,6 +391,8 @@ class LiveBoardGates(unittest.TestCase):
         ran, skipped = set(), set()
         for name, call, kind, message, _ in GATES:
             for board in UNQUALIFIED:
+                if admits(board, name.split()[0]):
+                    continue  # a testing board this gate admits; see the control test below
                 pair = (name, board['target'])
                 with self.subTest(gate=name, board=board['target']):
                     skipped.add(pair)  # until the gate has actually run
@@ -394,9 +404,14 @@ class LiveBoardGates(unittest.TestCase):
                     self.assertEqual(attempts, [], 'a refused board reached a filesystem write')
         # Every gate must have met every board this release refuses, testing boards included;
         # a pair counts only once its gate ran or the platform explicitly skipped it.
-        unqualified = [board['target'] for board in TABLE['boards'] if board['support'] != 'qualified']
-        self.assertEqual(ran | skipped, {(gate[0], target) for gate in GATES for target in unqualified})
+        unqualified = [board for board in TABLE['boards'] if board['support'] != 'qualified']
+        self.assertEqual(ran | skipped, {(gate[0], board['target']) for gate in GATES for board in unqualified
+                                         if not admits(board, gate[0].split()[0])})
         self.assertTrue(ran, 'no gate ran')
+
+    def test_gate_ids_name_every_gate(self):
+        """A board's "gates" can only name a gate these tests run, and every gate has an id."""
+        self.assertEqual({name.split()[0] for name, *_ in GATES} | {'g16'}, set(GATE_IDS))
 
     def test_near_miss_names_are_refused(self):
         """Gates match whole names: apple,j713-x is not the J713, and apple,t8132-x is not the T8132."""
@@ -420,17 +435,17 @@ class LiveBoardGates(unittest.TestCase):
                 self.assertEqual(attempts, [], 'a refused board reached a filesystem write')
 
     def test_qualified_boards_pass_the_video_start_lines(self):
-        """The extracted lines are the whole check, so a qualified board must pass them outright."""
-        for board in QUALIFIED:
+        """The extracted lines are the whole check, so an admitted board must pass them outright."""
+        for board in [board for board in BOARDS if admits(board, 'm4-video-start')]:
             with self.subTest(board=board['target']):
                 error, attempts = self.outcome(video_start_guards, identity(board))
                 self.assertIsNone(error)
                 self.assertEqual(attempts, [])
 
     def test_qualified_boards_pass_the_board_gate(self):
-        """Control: the same fixture with a qualified board gets past the board check."""
+        """Control: the same fixture with an admitted board (qualified, or testing and listed) gets past the board check."""
         for name, call, _, message, soc_message in GATES:
-            for board in QUALIFIED:
+            for board in [board for board in BOARDS if admits(board, name.split()[0])]:
                 with self.subTest(gate=name, board=board['target']):
                     error, _ = self.outcome(call, identity(board))
                     self.assertNotIn(message, str(error))

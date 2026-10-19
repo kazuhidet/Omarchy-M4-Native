@@ -21,6 +21,16 @@ TESTING = [board for board in BOARDS if board['support'] == 'testing']
 UNQUALIFIED = [board for board in BOARDS if board['support'] != 'qualified']
 # The SoC the release's gates check: every qualified board must share it.
 (SOC,) = {board['soc'] for board in QUALIFIED}
+# Live gates a testing board may list in its "gates": each admits it only with
+# hardware evidence from that board, while every other gate keeps refusing it.
+GATE_IDS = ('g16', 'm4-boot-compose', 'm4-channel-setup', 'm4-headphones', 'm4-lid-lock',
+            'm4-session-placement', 'm4-j713-audio-ready', 'm4-j713-audio-register',
+            'm4-video-start', 'm4-j713-owner-assets')
+
+
+def admits(board, gate):
+    """True when that live gate must let the board through: qualified, or testing and listed."""
+    return board['support'] == 'qualified' or (board['support'] == 'testing' and gate in board.get('gates', ()))
 
 
 # The J713 board name on another SoC (M2): a gate that checks only the board accepts it.
@@ -36,6 +46,7 @@ def identity(board):
     return f"{board['compatible']}\0{board['soc']}\0apple,arm-platform\0".encode()
 
 
-def refused_identities():
+def refused_identities(gate=None):
     """(label, compatible) pairs a gate that checks both board and SoC must refuse."""
-    return [(board['target'], identity(board)) for board in UNQUALIFIED] + [FOREIGN_SOC, NEAR_MISS_BOARD, NEAR_MISS_SOC]
+    return ([(board['target'], identity(board)) for board in UNQUALIFIED if not (gate and admits(board, gate))]
+            + [FOREIGN_SOC, NEAR_MISS_BOARD, NEAR_MISS_SOC])

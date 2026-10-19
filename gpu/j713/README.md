@@ -19,8 +19,9 @@ top state gets 24304 mW, and its probe fails with `-22` and no log line.
 
 `asahi/g16.rs` accepts each Air's own derived limit up to 24800 mW and passes
 it to the GPU firmware as its power ceiling, as before. Every other check is
-unchanged: ten performance groups, 1470 MHz, board `apple,j713` +
-`apple,t8132` and firmware `mBoot-18000.120.36`. The core mask check now also
+unchanged: ten performance groups, 1470 MHz, board `apple,j713` (or the
+15-inch `apple,j715`, a testing board) + `apple,t8132` and firmware
+`mBoot-18000.120.36`. The core mask check now also
 accepts the eight-core GPU (below). A 24800 mW Air
 takes exactly the alpha.1 path, apart from one extra log line. Every rejection
 now logs its reason and the measured values:
