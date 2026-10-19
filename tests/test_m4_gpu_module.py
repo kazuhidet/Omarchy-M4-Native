@@ -118,6 +118,26 @@ class GpuModule(unittest.TestCase):
         self.assertFalse((self.root / MODULE.STATE / 'alpha1-module.ko').exists())
         self.assertEqual(self.run_tool('--boot')[1]['status'], 'current')
 
+    def test_every_previous_fix_moves_to_the_new_one(self):
+        # 1-1 or 1-2 (#57) and 1-3 (#118) each leave their own module and pin.
+        LATER = b'later fixed gpu module'
+        later = {'sha256': hashlib.sha256(LATER).hexdigest(), 'size': len(LATER)}
+        with mock.patch.object(MODULE, 'PREVIOUS', (PREVIOUS, later)):
+            for module, pin in ((PRIOR, PREVIOUS['sha256']), (LATER, later['sha256']),
+                                (LATER, PREVIOUS['sha256'])):  # 1-3's swap cut short on a 1-2 Air
+                with self.subTest(module=module, pin=pin[:8]):
+                    self.install(module, sums(pin))
+                    self.assertIn(self.run_tool()[1]['state'],
+                                  ('previous',) if pin == hashlib.sha256(module).hexdigest() else ('interrupted',))
+                    self.assertEqual(self.run_tool('--boot')[0], 0)
+                    self.assertEqual(self.state(), (NEW, sums(FIXED['sha256'])))
+            # A pin ahead of its module is never completed.
+            self.install(PRIOR, sums(later['sha256']))
+            before = self.state()
+            self.assertEqual(self.run_tool()[1]['state'], 'unknown')
+            self.assertEqual(self.run_tool('--boot')[0], 1)
+            self.assertEqual(self.state(), before)
+
     def test_interrupted_upgrade_is_completed(self):
         real = MODULE.write
 
@@ -233,8 +253,9 @@ class GpuModule(unittest.TestCase):
         self.assertIn('stock=' + reloaded.STOCK['sha256'], helper)
         readme = (ROOT / 'gpu/j713/README.md').read_text()
         self.assertIn(reloaded.FIXED['sha256'], readme)
-        # 3cf47fa7 is #57's module, shipped in 1-1 and 1-2; Airs on it must upgrade.
-        self.assertEqual([old['sha256'][:8] for old in reloaded.PREVIOUS], ['3cf47fa7'])
+        # 3cf47fa7 is #57's module, shipped in 1-1 and 1-2, and de0337a7 #118's, shipped in 1-3;
+        # Airs on either must upgrade.
+        self.assertEqual([old['sha256'][:8] for old in reloaded.PREVIOUS], ['3cf47fa7', 'de0337a7'])
         for old in reloaded.PREVIOUS:
             self.assertIn(old['sha256'], readme)
             self.assertNotIn(reloaded.FIXED['sha256'], (old['sha256'], reloaded.STOCK['sha256']))

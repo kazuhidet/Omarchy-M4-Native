@@ -321,6 +321,21 @@ file.
 - **`omarchy-m4-boot` 1-13** depends on `omarchy-m4-evdi`, as 1-6, 1-7 and 1-10
   do for the GPU, headphone and CPU packages. Nothing else in it changes.
 
+### omarchy-m4-gpu 1-4
+
+- **GPU and desktop on the 15-inch Air** (J715, a testing board, #142). Its
+  GPU is the J713's T8132 GPU with the same firmware (`mBoot-18000.120.36`),
+  and its power limit (24552 mW on one J715, a 990 mV top state) is within the
+  #57 ceiling. The module (`55831cf4…`, 390,752 bytes, built from
+  [`gpu/j713/`](../gpu/j713/README.md) on the alpha.1 kernel tree and pinned in
+  `package-inputs`) adds `apple,j715` to the Air gate's board check. Every
+  other check is unchanged, so a 13-inch Air runs exactly as on 1-3. One J715
+  ran its desktop on this module (the Air gate logged `max-power=24552 mW`).
+- **`m4-gpu-module`** moves an Air from #118's module (`de0337a7…`, 1-3) or
+  #57's (`3cf47fa7…`, 1-1 and 1-2) to the new one at the next boot. A module
+  ahead of its pin is completed, a pin ahead of its module is refused, and
+  `sudo m4-gpu-module --rollback` still restores alpha.1.
+
 ## Connecting new installs
 
 The release root builder (`tools/prepare-j713-release.py`) adds
@@ -515,7 +530,7 @@ first. Joins stay `unverified` until a byte-identical rebuild is recorded:
   (`aaad802e…`), built from `audio/j713/kernel/` on the alpha.1
   kernel-controller tree with `reference-sound-exports.symvers`; an identical
   rebuild is not yet recorded.
-- **Air GPU module (`omarchy-m4-gpu`):** `asahi_m4.ko` (`3cf47fa7…`), built from
+- **Air GPU module (`omarchy-m4-gpu`):** `asahi_m4.ko` (`55831cf4…`), built from
   `gpu/j713/asahi/g16.rs` on the alpha.1 kernel tree with
   `gpu/j713/build-test-module.sh`. Rebuilt byte for byte (`rebuilt-identical`),
   after the same run reproduced alpha.1's module.

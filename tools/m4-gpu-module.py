@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 KB2UKA
-"""Apply the fixed Air GPU module (#57, #118) on an installed alpha.1 Air.
+"""Apply the fixed Air GPU module (#57, #118, #142) on an installed alpha.1 Air.
 
 m4-gpu-start checks /opt/m4-gpu/runtime.sha256 before it loads
 /opt/m4-gpu/asahi_m4.ko, and runs only once per boot. This tool replaces the
@@ -10,10 +10,11 @@ acts at boot, from the drop-in that runs it before m4-gpu-start, because the
 module stays loaded until the next boot.
 
 Known states: stock alpha.1 (module and pin both 80cf3669), fixed (both
-de0337a7, the #57 power limit plus the eight-core GPU of #118), previous (both
-3cf47fa7, the #57 module of omarchy-m4-gpu 1-1 and 1-2 and its test build),
-and the states a power cut between the two writes can leave (module newer than
-its pin). Stock and previous move to fixed. Anything else, such as a
+55831cf4, the #57 power limit and the eight-core GPU of #118, also admitting the
+15-inch J715 of #142), previous (both 3cf47fa7, the #57 module of
+omarchy-m4-gpu 1-1 and 1-2 and its test build, or both de0337a7, the #118
+module of 1-3), and the states a power cut between the two writes can leave
+(module newer than its pin). Stock and previous move to fixed. Anything else, such as a
 hand-patched module, is refused and left untouched. --rollback asks the next
 boot to restore the alpha.1 files and to stop applying the fix. Inspection is
 the default.
@@ -37,9 +38,10 @@ STATE = 'var/lib/omarchy-m4/gpu-module'
 TEST_BACKUP = 'opt/m4-gpu/alpha1-backup'
 GPU_NODE = 'sys/firmware/devicetree/base/soc/gpu@302600000'
 STOCK = {'sha256': '80cf3669575edd09aed226a93e47aaaf132e70f1070154629c413c0b40d34578', 'size': 388216}
-FIXED = {'sha256': 'de0337a773930c7862a99706112dd71eaaecf2021707da248fd3d07feefdc824', 'size': 390816}
-# Earlier fixes this one replaces, oldest first: #57's module (1-1, 1-2).
-PREVIOUS = ({'sha256': '3cf47fa706630ddc5fc55a3bce00ab31e8a4c5ee48e1ba563e26a0406da196f8', 'size': 390752},)
+FIXED = {'sha256': '55831cf4e8216ed423cd68fd39bcc989907f1958e8fbc07575351463906ab1f2', 'size': 390752}
+# Earlier fixes this one replaces, oldest first: #57's module (1-1, 1-2), #118's (1-3).
+PREVIOUS = ({'sha256': '3cf47fa706630ddc5fc55a3bce00ab31e8a4c5ee48e1ba563e26a0406da196f8', 'size': 390752},
+            {'sha256': 'de0337a773930c7862a99706112dd71eaaecf2021707da248fd3d07feefdc824', 'size': 390816})
 
 
 class Refused(Exception):
