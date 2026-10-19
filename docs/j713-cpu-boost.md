@@ -125,11 +125,12 @@ waits for it.
 
 On the 15-inch Air (J715, a testing board, #142) the helper loads the idle
 driver but never the guard: the guard's step and fast-heat tables were measured
-in the J713 chassis, and the J715 runs warmer: the all-core soak of
+in the J713 chassis, and the J715's have not been. The all-core soak of
 [j713-cpu-idle.md](j713-cpu-idle.md) (ten cores, ten minutes, 1800 / 2172 MHz)
-peaked at 86 °C on one J715 on battery with the display at full brightness,
-against the J713's 78.6 °C. The gate stays closed, P stays at 1800 MHz, and
-`--boost on` is refused there.
+peaked at 86 °C on one J715 on battery with the display at full brightness;
+the J713's 78.6 °C there records neither condition, so the two are not
+compared. The gate stays closed, P stays at 1800 MHz, and `--boost on` is
+refused there.
 
 With boost on, the helper also sets `sched_util_clamp_min_rt_default` to 412.
 schedutil runs a real-time task at that floor, by default the policy maximum.
