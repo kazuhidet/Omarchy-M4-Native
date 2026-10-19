@@ -99,6 +99,29 @@ No Apple executable, tuning strip, extracted preset, raw render capture, private
 user path or native log is included. The routing, UCM and WirePlumber text in
 `policy/` remains original MIT-licensed configuration.
 
+## One board per build: J713 or J715
+
+`kernel/` builds for one board at a time. Every per-board value (board
+compatible, amplifier count and addresses, codec name prefixes, TX zero-drive
+masks, card and group names, the MCA frame words) is in
+`kernel/m4-audio-board.h`, which the Makefile includes. The default build is
+the J713; `M4_BOARD=j715` builds the same five modules for the 15-inch Air
+(J715, a `testing` board,
+[#142](https://github.com/Kb2uka/Omarchy-M4-Native/issues/142)). No build
+admits both boards, and the gate, lease, cutoff and verified amplifier writes
+are unchanged. `bootstrap/` and `topology/` stay as released: the release
+source joins pin both trees at the alpha.1 tag. Their J715 copies are in
+[`../j715/`](../j715/README.md).
+
+With the J713 default, the seven modules are byte for byte the qualified ones
+in `qualified.json`. On 2026-10-19 this was checked on an aarch64 host with
+the kernel tree `kernel-inputs.sha256` pins, `reference-sound-exports.symvers`,
+`KCFLAGS=-Werror`, `J713_PROFILE=conservative-v1`, the compilers the tree
+records (Ubuntu clang 21.1.8-6ubuntu1) and each component mounted at `/job`,
+as `tools/build-j713-audio.sh` runs it: all seven hashes, including the #61
+group module `aaad802e…`, before and after this change.
+`tests/test_j715_audio_source.py` checks the header and the J715 copies.
+
 ## Pending image apply/check
 
 Run apply/check as root. The target must be an explicitly mounted ext4 image containing both

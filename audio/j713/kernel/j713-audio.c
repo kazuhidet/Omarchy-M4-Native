@@ -27,8 +27,8 @@ struct j713_audio {
 	u32 preserved;
 	struct j713_speaker_group gate;
 	struct mutex members;
-	struct i2c_client *codec[4];
-	u8 gain[4], dvc[4];
+	struct i2c_client *codec[M4_NAMP];
+	u8 gain[M4_NAMP], dvc[M4_NAMP];
 	const struct j713_transport_ops *transport;
 	void *transport_context;
 	const void *control_owner;
@@ -51,7 +51,7 @@ static const struct j713_group_profile j713_profile = {
 	.configure_ns = 2000 * NSEC_PER_MSEC,
 	.lease_ns = 50 * NSEC_PER_MSEC,
 };
-static const unsigned short addresses[] = { 0x38, 0x3b, 0x39, 0x3c };
+static const unsigned short addresses[M4_NAMP] = M4_ADDRESSES;
 struct codec_membership { struct j713_audio *audio; struct i2c_client *client; };
 
 static bool j713_node_at(struct device_node *node, const char *path)
@@ -191,7 +191,7 @@ static int audio_configure(void *context, struct j713_speaker_group *gate, u64 g
 		1,0x32,2,0x22,0x83,0x2d,0x80,2,6,0x32,0x46,0x30,
 		2,6,0x38,0x40,0x30,2,6,0x3e,0x37,0x30,0xff,0xe6,
 	};
-	static const u8 masks[4][4] = {{0xf0,0xf0,0,0},{0x0f,0x0f,0,0},{0},{0}};
+	static const u8 masks[M4_NAMP][4] = M4_TX_ZD_MASKS;
 	u8 force;
 	unsigned int i, n;
 	int ret = 0;
@@ -199,7 +199,7 @@ static int audio_configure(void *context, struct j713_speaker_group *gate, u64 g
 	a->sensing = false;
 	/* Physical reset release precedes access; independent cutoff remains armed. */
 	usleep_range(1000, 2000);
-	for (i = 0; i < 4 && !ret; i++) {
+	for (i = 0; i < M4_NAMP && !ret; i++) {
 		if (!a->codec[i] || a->gain[i] > J713_GAIN_MAX ||
 		    a->dvc[i] > J713_DVC_MAX) {
 			ret = -EPERM;
@@ -209,7 +209,7 @@ static int audio_configure(void *context, struct j713_speaker_group *gate, u64 g
 		if (!ret) ret = expect_byte(a, i, 2, 0x1a, gen);
 		if (!ret) ret = expect_byte(a, i, 0x7d, 0x30, gen);
 	}
-	for (i = 0; i < 4 && !ret; i++) {
+	for (i = 0; i < M4_NAMP && !ret; i++) {
 		ret = amp_write(a, i, 3, a->gain[i], gen);
 		if (!ret) ret = amp_write(a, i, 0x1a, a->dvc[i], gen);
 		if (!ret) ret = amp_write(a, i, 0x0c, 0x10 | i, gen);
@@ -230,7 +230,7 @@ static int audio_configure(void *context, struct j713_speaker_group *gate, u64 g
 		if (!ret) ret = amp_write(a, i, 0, 0, gen);
 		if (!ret) ret = verify_limits(a, i, 0x1a, gen);
 	}
-	for (i = 0; i < 4 && !ret; i++)
+	for (i = 0; i < M4_NAMP && !ret; i++)
 		ret = amp_write(a, i, 2, 0x82, gen);
 	mutex_unlock(&a->members);
 	return ret;
@@ -253,9 +253,9 @@ static int audio_active(void *context, struct j713_speaker_group *gate, u64 gen)
 		if (ret == -EAGAIN)
 			ret = J713_GROUP_ACTIVATE_DEFERRED;
 	}
-	for (i = 0; i < 4 && !ret; i++)
+	for (i = 0; i < M4_NAMP && !ret; i++)
 		ret = verify_limits(a, i, 0x81, gen);
-	for (i = 0; i < 4 && !ret; i++)
+	for (i = 0; i < M4_NAMP && !ret; i++)
 		ret = amp_write(a, i, 2, 0x80, gen);
 	mutex_unlock(&a->members);
 	return ret;
@@ -267,7 +267,7 @@ static int audio_quiescent(void *context)
 	unsigned int i;
 	int ret = 0;
 	mutex_lock(&a->members);
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < M4_NAMP; i++)
 		if (!a->codec[i]) ret = -ENODEV;
 	if (!ret)
 		ret = a->transport ? a->transport->quiescent(a->transport_context) : -ENODEV;
@@ -287,7 +287,7 @@ struct j713_audio *devm_j713_audio_get(struct device *consumer)
 	struct platform_device *pdev;
 	struct j713_audio *a;
 	struct device_link *link;
-	if (!of_machine_is_compatible("apple,j713") ||
+	if (!of_machine_is_compatible(M4_BOARD) ||
 	    !of_machine_is_compatible("apple,t8132")) return ERR_PTR(-ENODEV);
 	node = of_parse_phandle(consumer->of_node, "apple,speaker-group", 0);
 	if (!node) return ERR_PTR(-EINVAL);
@@ -319,7 +319,7 @@ static void codec_leave(void *data)
 	j713_group_revoke(&a->gate);
 	mutex_lock(&a->gate.operation_lock);
 	mutex_lock(&a->members);
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < M4_NAMP; i++)
 		if (a->codec[i] == client) a->codec[i] = NULL;
 	mutex_unlock(&a->members);
 	mutex_unlock(&a->gate.operation_lock);
@@ -339,12 +339,12 @@ int devm_j713_codec_join(struct j713_audio *a, struct i2c_client *client,
 	member->audio = a;
 	member->client = client;
 	mutex_lock(&a->members);
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < M4_NAMP; i++)
 		if (a->codec[i] && a->codec[i]->adapter != client->adapter) {
 			ret = -EXDEV;
 			goto out;
 		}
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < M4_NAMP; i++) {
 		if (client->addr != addresses[i]) continue;
 		if (a->codec[i]) { ret = -EBUSY; break; }
 		a->codec[i] = client;
@@ -469,8 +469,8 @@ int j713_audio_sensing(struct j713_audio *a)
 	gen = audio_epoch(a);
 	ret = !gen || !a->transport ? -EPERM : a->transport->sensing(a->transport_context);
 	if (!ret && !a->sensing) {
-		for (i = 0; i < 4 && !ret; i++) ret = verify_limits(a, i, 0x82, gen);
-		for (i = 0; i < 4 && !ret; i++) ret = amp_write(a, i, 2, 0x81, gen);
+		for (i = 0; i < M4_NAMP && !ret; i++) ret = verify_limits(a, i, 0x82, gen);
+		for (i = 0; i < M4_NAMP && !ret; i++) ret = amp_write(a, i, 2, 0x81, gen);
 		if (!ret) {
 			a->mute_ns = ktime_get_ns();
 			smp_store_release(&a->sensing, true);
@@ -497,8 +497,8 @@ int j713_audio_playback_mute(struct j713_audio *a)
 	active = a->gate.phase == J713_GROUP_ACTIVE;
 	mutex_unlock(&a->gate.gpio_lock);
 	if (gen && active) {
-		for (i = 0; i < 4 && !ret; i++) ret = verify_limits(a, i, 0x80, gen);
-		for (i = 0; i < 4 && !ret; i++) ret = amp_write(a, i, 2, 0x81, gen);
+		for (i = 0; i < M4_NAMP && !ret; i++) ret = verify_limits(a, i, 0x80, gen);
+		for (i = 0; i < M4_NAMP && !ret; i++) ret = amp_write(a, i, 2, 0x81, gen);
 		if (!ret) ret = j713_group_check(&a->gate, gen);
 		if (!ret) {
 			mutex_lock(&a->gate.gpio_lock);
@@ -516,7 +516,7 @@ EXPORT_SYMBOL_GPL(j713_audio_playback_mute);
 
 int j713_audio_codec_mute(struct j713_audio *a, unsigned int index, bool mute)
 {
-	if (index >= 4) return -EINVAL;
+	if (index >= M4_NAMP) return -EINVAL;
 	if (mute) {
 		set_bit(index, &a->mute_mask);
 		return j713_audio_playback_mute(a);
@@ -545,7 +545,7 @@ int j713_audio_renew(struct j713_audio *a, const void *owner, s64 gen, s64 seq)
 	mode = active ? 0x80 : 0x81;
 	ret = !sensing || READ_ONCE(a->control_owner) != owner ? -EPERM :
 		j713_group_check(&a->gate, gen);
-	for (i = 0; i < 4 && !ret; i++) ret = verify_limits(a, i, mode, gen);
+	for (i = 0; i < M4_NAMP && !ret; i++) ret = verify_limits(a, i, mode, gen);
 	if (!ret) ret = j713_group_renew(&a->gate, owner, gen, seq);
 out:
 	mutex_unlock(&a->members);
@@ -591,7 +591,7 @@ int j713_audio_level(struct j713_audio *a, unsigned int index,
 	u8 *stored, old, mode;
 	u64 gen;
 	int ret = 0;
-	if (index >= 4 || (reg != 3 && reg != 0x1a)) return -EINVAL;
+	if (index >= M4_NAMP || (reg != 3 && reg != 0x1a)) return -EINVAL;
 	if (write && ((reg == 3 && (*value > J713_GAIN_MAX || (*value & 1))) ||
 	    (reg == 0x1a && (*value > J713_DVC_MAX)))) return -ERANGE;
 	mutex_lock(&a->gate.operation_lock);
@@ -635,7 +635,7 @@ int j713_audio_sensor(struct j713_audio *a, unsigned int index, bool is_current,
 	u64 gen;
 	u8 mode;
 	int ret = 0;
-	if (index >= 4) return -EINVAL;
+	if (index >= M4_NAMP) return -EINVAL;
 	*enabled = 0;
 	mutex_lock(&a->gate.operation_lock);
 	mutex_lock(&a->members);
@@ -712,13 +712,13 @@ static int j713_probe(struct platform_device *pdev)
 	u32 hw, cache;
 	unsigned int i;
 	int ret;
-	if (!of_machine_is_compatible("apple,j713") ||
+	if (!of_machine_is_compatible(M4_BOARD) ||
 	    !of_machine_is_compatible("apple,t8132")) return -ENODEV;
 	a = devm_kzalloc(&pdev->dev, sizeof(*a), GFP_KERNEL);
 	if (!a) return -ENOMEM;
 	a->dev = &pdev->dev;
 	mutex_init(&a->members);
-	a->mute_mask = 0xf;
+	a->mute_mask = M4_TX_SLOT_MASK;
 	INIT_WORK(&a->notify_cutoff, audio_notify_cutoff);
 	a->reset = devm_gpiod_get(&pdev->dev, "reset", GPIOD_ASIS);
 	if (IS_ERR(a->reset)) return PTR_ERR(a->reset);
@@ -735,7 +735,7 @@ static int j713_probe(struct platform_device *pdev)
 	if (!ret) ret = regmap_read(a->gpio_map, RESET_REG, &cache);
 	if (ret || hw != cache) return ret ?: -ESTALE;
 	a->preserved = hw & ~RESET_MASK;
-	for (i = 0; i < 4; i++) { a->gain[i] = J713_GAIN_MAX; a->dvc[i] = J713_DVC_MIN; }
+	for (i = 0; i < M4_NAMP; i++) { a->gain[i] = J713_GAIN_MAX; a->dvc[i] = J713_DVC_MIN; }
 	ret = j713_group_init(&a->gate, &gate_ops, a, &j713_profile);
 	if (ret) return ret;
 	a->notifications_ready = true;
@@ -759,11 +759,11 @@ static int j713_suspend(struct device *dev)
 	return j713_group_revoke(&((struct j713_audio *)dev_get_drvdata(dev))->gate);
 }
 static const struct dev_pm_ops j713_pm = { .suspend = j713_suspend, .freeze = j713_suspend, .poweroff = j713_suspend };
-static const struct of_device_id j713_match[] = {{ .compatible = "apple,j713-speaker-group" }, {}};
+static const struct of_device_id j713_match[] = {{ .compatible = M4_GROUP_COMPAT }, {}};
 MODULE_DEVICE_TABLE(of, j713_match);
 static struct platform_driver j713_driver = {
 	.probe = j713_probe, .remove = j713_remove,
-	.driver = { .name = "j713-speaker-group", .of_match_table = j713_match, .pm = &j713_pm, .dev_groups = j713_groups },
+	.driver = { .name = M4_GROUP_DRIVER, .of_match_table = j713_match, .pm = &j713_pm, .dev_groups = j713_groups },
 };
 module_platform_driver(j713_driver);
 MODULE_DESCRIPTION("J713 shared speaker reset and protected codec group");

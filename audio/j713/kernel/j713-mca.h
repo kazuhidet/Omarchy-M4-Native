@@ -12,11 +12,11 @@ static int j713_frame_unlocked(struct j713_transport *t)
      readl(mca_reg(cl, REG_MCLK_CONF)) != 0x200 ||
      readl(mca_reg(cl, REG_SYNCGEN_HI_PERIOD)) != 0 ||
      readl(mca_reg(cl, REG_SYNCGEN_LO_PERIOD)) != 248 ||
-     readl(cl->base + 0x6004) != 0x17503 || readl(cl->base + 0x6008) != 1 ||
-     readl(cl->base + 0x600c) != ~0U || readl(cl->base + 0x6010) != 0xfffffff0 ||
-     readl(cl->base + 0x6014) != ~0U || readl(cl->base + 0x6018) != 0xfffffff0 ||
-     readl(cl->base + 0x4004) != 0x1b047 || readl(cl->base + 0x4008) != 1 ||
-     readl(cl->base + 0x400c) != ~0U || readl(cl->base + 0x4010) != 0xffffff00 ||
+     readl(cl->base + 0x6004) != M4_TX_SERDES_WORD || readl(cl->base + 0x6008) != 1 ||
+     readl(cl->base + 0x600c) != ~0U || readl(cl->base + 0x6010) != M4_TX_SLOT_INV ||
+     readl(cl->base + 0x6014) != ~0U || readl(cl->base + 0x6018) != M4_TX_SLOT_INV ||
+     readl(cl->base + 0x4004) != M4_RX_CONFIG_WORD || readl(cl->base + 0x4008) != 1 ||
+     readl(cl->base + 0x400c) != ~0U || readl(cl->base + 0x4010) != M4_RX_SLOT_INV ||
      (readl(cl->base + 0x4014) & 0x3f) != 3 || readl(cl->base + 0x4018) ||
      readl(t->mca->switch_base) != 0x20101000) return -EIO;
  if (!t->port_owned || readl(cl->base + 0x2160) != (t->port_saved[0] | 14) ||
@@ -130,12 +130,12 @@ static int j713_fmt(struct j713_transport *t, unsigned int fmt)
 static int j713_fe_start(struct j713_transport *t, struct snd_pcm_substream *s)
 {
  if (!s->pcm->nonatomic || snd_pcm_stream_linked(s) || READ_ONCE(t->closing)) return -EINVAL;
- return snd_pcm_hw_constraint_single(s->runtime, SNDRV_PCM_HW_PARAM_CHANNELS, s->stream ? 8 : 4);
+ return snd_pcm_hw_constraint_single(s->runtime, SNDRV_PCM_HW_PARAM_CHANNELS, s->stream ? M4_RX_CH : M4_TX_CH);
 }
 static int j713_fixed_format(struct j713_transport *t)
 {
  struct mca_cluster *cl = &t->mca->clusters[0];
- const struct m4_t8132_rx_format f = { .channels=0xff, .width=16, .delay=1,
+ const struct m4_t8132_rx_format f = { .channels=M4_RX_SLOT_MASK, .width=16, .delay=1,
   .i2s_sources=3, .sync_type=2, .falling_edge=true };
  struct m4_t8132_rx_plan plan;
  struct m4_t8132_write fifo;
@@ -150,7 +150,7 @@ static int j713_fixed_format(struct j713_transport *t)
  if (ret) return ret;
  mca_modify(cl, CLUSTER_TX_OFF + REG_TX_SERDES_CONF, SERDES_CONF_BCLK_POL, SERDES_CONF_BCLK_POL);
  writel(1, cl->base + 0x6008);
- ret = mca_configure_serdes(cl, CLUSTER_TX_OFF, 0xf, 4, 4, 32, true, 1);
+ ret = mca_configure_serdes(cl, CLUSTER_TX_OFF, M4_TX_SLOT_MASK, M4_TX_CH, M4_TX_CH, 32, true, 1);
  if (ret) return ret;
  writel((old & ~fifo.mask) | fifo.value, t->mca->switch_base);
  ret = mca_fe_set_clocks_divider(cl, 250, 48000);
@@ -174,7 +174,7 @@ static int j713_fe_params(struct j713_transport *t, struct snd_pcm_substream *s,
                            struct snd_pcm_hw_params *p)
 {
  int ret;
- if (params_rate(p) != 48000 || params_channels(p) != (s->stream ? 8 : 4) ||
+ if (params_rate(p) != 48000 || params_channels(p) != (s->stream ? M4_RX_CH : M4_TX_CH) ||
      params_format(p) != (s->stream ? SNDRV_PCM_FORMAT_S16_LE : SNDRV_PCM_FORMAT_S32_LE)) return -EINVAL;
  mutex_lock(&t->lock);
  ret = t->failed ? -EIO : t->frame_ready ? j713_frame(t) : j713_fixed_format(t);
@@ -491,7 +491,7 @@ static int j713_transport_init(struct mca_data *mca)
  expected=of_find_node_by_path("/soc/i2s@393600000");
  match=expected && mca->dev->of_node==expected;
  of_node_put(expected);
- if(!of_machine_is_compatible("apple,j713") || mca->nclusters!=1 || !match)return -ENODEV;
+ if(!of_machine_is_compatible(M4_BOARD) || mca->nclusters!=1 || !match)return -ENODEV;
  t=devm_kzalloc(mca->dev,sizeof(*t),GFP_KERNEL);if(!t)return -ENOMEM;
  t->mca=mca;mutex_init(&t->lock);mutex_init(&t->frame_lock);INIT_DELAYED_WORK(&t->cancelled_work,j713_cancelled_work);
  t->audio=devm_j713_audio_get(mca->dev);if(IS_ERR(t->audio))return PTR_ERR(t->audio);
