@@ -4,13 +4,13 @@
   "note": "Every ELF object or kernel module in the release root that no pacman package owns, the source that built it, and how that was established. rebuilt-identical means a rebuild from the named sources reproduced the exact bytes; unverified names the likeliest published source by file name only. tools/prepare-j713-release.py refuses to assemble a release with an unlisted binary or an unverified entry.",
   "binaries": {
     "opt/m4-gpu/asahi_m4.ko": {
-      "sha256": "de0337a773930c7862a99706112dd71eaaecf2021707da248fd3d07feefdc824",
+      "sha256": "55831cf4e8216ed423cd68fd39bcc989907f1958e8fbc07575351463906ab1f2",
       "license": "GPL-2.0-only",
       "correspondence": "rebuilt-identical",
       "sources": [
         {
           "tree": "gpu/j713",
-          "commit": "3eb265b4dc0d8f6238ae74867fef7c7cf4cc31a3"
+          "commit": "f33b14c8966688a2cc3c093f9fb04fb2500755c8"
         },
         {
           "archive": "source/kernel-controller.tar.gz",
@@ -21,7 +21,7 @@
           "sha256": "c19a7c97184b3f954795c50dfeff857e8baf685f901524845710da839cbd2562"
         }
       ],
-      "evidence": "#57 and #118, the module omarchy-m4-gpu 1-3 ships: gpu/j713/build-test-module.sh built it from the alpha.1 kernel-controller tree and source packet with gpu/j713/asahi/g16.rs at 3eb265b, byte for byte in two clean runs of homebase m4-gravity-builder:20261008 (b2069edb) on 2026-10-17, each after first reproducing alpha.1's 80cf3669."
+      "evidence": "#57, #118 and #142, the module omarchy-m4-gpu 1-4 ships: gpu/j713/build-test-module.sh's steps built it from the alpha.1 kernel-controller tree and source packet with gpu/j713/asahi/g16.rs at f33b14c, byte for byte in two runs on an aarch64 host on 2026-10-19, each after first reproducing alpha.1's 80cf3669; the same host reproduced de0337a7 (packaging/channel-source-joins.json)."
     },
     "opt/m4-mesa/lib/gbm/dri_gbm.so": {
       "sha256": "5408ea008e52c98f5c111d637236e5ba52f07c20020fe188bb496c11ba430956",

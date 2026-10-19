@@ -74,6 +74,14 @@ Air reaches through the channel: `m4-gpu-module` reports `fixed`, and
 `sudo m4-gpu-module --rollback` restores alpha.1. `IMAGE.json` records both
 hashes under `gpu_module`.
 
+The next installer update carries the module `omarchy-m4-gpu` 1-4 ships,
+`55831cf4e8216ed423cd68fd39bcc989907f1958e8fbc07575351463906ab1f2`, which
+also admits the 15-inch Air's board
+([#142](https://github.com/Kb2uka/Omarchy-M4-Native/issues/142)); the
+assembler accepts only that build from this tree on. Update 4's image keeps
+`de0337a7…`, which `m4-gpu-module` moves to `55831cf4…` once the Air is
+connected to M4 updates.
+
 ## Binaries outside packages
 
 The installed root carries some programs, libraries and kernel modules that no

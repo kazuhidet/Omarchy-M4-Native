@@ -64,16 +64,16 @@ STAGE1_ALPHA1 = '18cc4cd1ba07928078d2cb52a2c1c5f40a4661fd3db7ee6af0e6923fd237be1
 STAGE1_ANS1 = '8c5a15736c19d0a3428e64f01292791fb54dd68e09f2f5304a7210d19c42adce'
 STAGE1_BYTES = 0x120000
 STAGE1_PATCH = 'patches-m1n1/stage1-ans-no-reset.patch'
-# The Air GPU module: alpha.1's, and the one omarchy-m4-gpu 1-3 ships (#57's per-chip power limit
-# and #118's eight-core GPU), built from gpu/j713. The image carries the fixed module, its pin in
+# The Air GPU module: alpha.1's, and the one omarchy-m4-gpu 1-4 ships (#57's per-chip power limit,
+# #118's eight-core GPU and #142's 15-inch Air board), built from gpu/j713. The image carries the fixed module, its pin in
 # runtime.sha256, and alpha.1's files where m4-gpu-module keeps them, so a new install is in the
 # state an Air reaches through the channel and --rollback still restores alpha.1.
 GPU_MODULE = 'opt/m4-gpu/asahi_m4.ko'
 GPU_SUMS = 'opt/m4-gpu/runtime.sha256'
 GPU_BACKUP = 'var/lib/omarchy-m4/gpu-module'
 GPU_ALPHA1 = '80cf3669575edd09aed226a93e47aaaf132e70f1070154629c413c0b40d34578'
-GPU_FIXED = 'de0337a773930c7862a99706112dd71eaaecf2021707da248fd3d07feefdc824'
-GPU_FIXED_BYTES = 390816
+GPU_FIXED = '55831cf4e8216ed423cd68fd39bcc989907f1958e8fbc07575351463906ab1f2'
+GPU_FIXED_BYTES = 390752
 GPU_SOURCE = 'gpu/j713'
 FIRS = ('j713-static-minimal-lane0-48000.wav', 'j713-static-minimal-lane1-48000.wav',
         'j713-static-minimal-lane2-48000.wav', 'j713-static-minimal-lane3-48000.wav')

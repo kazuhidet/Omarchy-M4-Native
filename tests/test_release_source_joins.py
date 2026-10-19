@@ -218,7 +218,7 @@ class ManifestTests(unittest.TestCase):
                          (release.GPU_ALPHA1, 'rebuilt-identical', alpha1_tree))
         documented = (ROOT / 'docs/j713-gpu-normal-root.md').read_text()
         self.assertIn('| GPU module | `' + alpha1['sha256'] + '` |', documented)
-        # The image runs the module omarchy-m4-gpu 1-3 ships, joined exactly as the channel joins it.
+        # The image runs the module omarchy-m4-gpu 1-4 ships, joined exactly as the channel joins it.
         gpu = binaries['opt/m4-gpu/asahi_m4.ko']
         self.assertEqual((gpu['sha256'], gpu['correspondence']), (release.GPU_FIXED, 'rebuilt-identical'))
         channel = json.loads((ROOT / 'packaging/channel-source-joins.json').read_bytes())['binaries']
