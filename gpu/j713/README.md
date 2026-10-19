@@ -1,13 +1,15 @@
-# Air GPU module: per-chip power limit (issue #57) and eight-core GPU (#118)
+# Air GPU module: per-chip power limit (issue #57), eight-core GPU (#118) and the 15-inch Air (#142)
 
-The current module (`de0337a773930c7862a99706112dd71eaaecf2021707da248fd3d07feefdc824`)
+The current module (`55831cf4e8216ed423cd68fd39bcc989907f1958e8fbc07575351463906ab1f2`)
 reaches installed Airs through the M4 update channel: `omarchy-m4-update`
-installs `omarchy-m4-gpu` 1-3, and the next boot swaps it in
-([package-channel.md](../../docs/package-channel.md#omarchy-m4-gpu-1-3)). It
-adds the eight-core GPU (below) to the #57 module
+installs `omarchy-m4-gpu` 1-4, and the next boot swaps it in
+([package-channel.md](../../docs/package-channel.md#omarchy-m4-gpu-1-4)). It
+adds the 15-inch Air's board (below) to the #118 module
+(`de0337a773930c7862a99706112dd71eaaecf2021707da248fd3d07feefdc824`, 1-3),
+which added the eight-core GPU (below) to the #57 module
 (`3cf47fa706630ddc5fc55a3bce00ab31e8a4c5ee48e1ba563e26a0406da196f8`, 1-1 and
-1-2), and an Air on that module moves to it the same way. Before the channel,
-#57 was a test build; `m4-gpu-test-module` below is how testers installed it.
+1-2). An Air on either moves to it the same way. Before the channel, #57 was a
+test build; `m4-gpu-test-module` below is how testers installed it.
 
 ## What it changes
 
@@ -59,6 +61,16 @@ directory at `/job`, the layout of the shipped build. It takes the alpha.1
 this `g16.rs` and an output directory. It rebuilds alpha.1 first and stops
 unless that gives the shipped `80cf3669…`, then builds the test module from the
 same tree with only `g16.rs` replaced.
+
+The tree was built on an x86-64 host, so its host tools (`scripts/basic/fixdep`,
+`scripts/mod/modpost`, the Rust proc macros under `rust/`) are x86-64 binaries.
+The 1-4 module was built on an aarch64 host: each of those tools, and the Rust
+crate metadata that names the proc macros (`pin_init`, `bindings`, `uapi`,
+`kernel`), was first rebuilt from its saved `.cmd` line, with the tree also
+mounted at `/job/kernel-backport`, the path its Rust metadata records, and the
+compilers the tree records (Ubuntu clang 21.1.8-6ubuntu1, rustc
+1.93.1+dfsg-0ubuntu6). That host reproduced `80cf3669…` and `de0337a7…` byte for
+byte before building `55831cf4…`.
 
 ## Install and roll back
 
