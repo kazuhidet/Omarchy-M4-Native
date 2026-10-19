@@ -15,6 +15,8 @@ stay as released (the release source joins pin them at the alpha.1 tag).
 | `topology/` | `j713_audio_dt3.ko` for the J715: the J713 loader built with `-DM4_AUDIO_J715`, applying `j715-audio.dtso` |
 | `*/m4-audio-board.h` | The same board header as `../j713/kernel/` |
 | `j715.conf` | The speakersafetyd model for `apple,j715` |
+| `owner-fir/`, `filters/` | The J715 filter generator and its static filters for AID38 speaker IDs 0 and 3 |
+| `policy/` | The J715 speaker routing: filter graph, WirePlumber and UCM |
 
 The module names stay the J713 ones; the J715 build admits only `apple,j715`.
 
@@ -81,7 +83,23 @@ LLVM's internal symbol suffixes. The daemon one J715 ran protected playback
 with was built from the same changes with another toolchain, and used one
 unit's 3.696 Ω for every `z_nominal`.
 
+## Routing
+
+`policy/` is the J713 routing (`../j713/policy/`) with the J715's names and
+six lanes; `tests/test_j715_audio_policy.py` checks every file against its J713
+source and the exact replacements. The filter graph keeps the J713's input
+clamps and feeds left to lanes 0, 2 and 4 and right to lanes 1, 3 and 5
+through the [speaker ID 3 filters](filters/README.md), each at the common gain
+0.336: the largest filter L1 is 2.9016, so no input can exceed 0.975 of full
+scale, the J713's bound. The raw six-channel card is hidden, as on the J713.
+
+The J715 kit runs the same WirePlumber, UCM and default-node files, byte for
+byte, but a louder graph (gain 0.60, a +4 dB low shelf at 150 Hz on the
+woofers and an output clamp per lane) that is outside that bound; it is not
+proposed here.
+
 ## Not here yet
 
-The six-lane filters, the routing policy and a delivery path. Until those
-land, nothing in this repository loads these modules or this model.
+Reading the speaker ID on Linux, so a speaker ID 0 Air gets its own filters,
+and a delivery path. Until those land, nothing in this repository installs
+these modules, the model, the filters or the routing.
