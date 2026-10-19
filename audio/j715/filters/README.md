@@ -22,9 +22,9 @@ The woofer filters have 8192 taps, against the J713's 4096, because AID38's
 out Apple's dynamic and volume-dependent processing and the large low-shelf
 in Tone2, so they are quieter in the bass than macOS.
 
-Only speaker ID 3 has been played. Using the speaker ID 0 files needs a way to
-read the speaker ID on Linux (the ADT names two `gpio0` pins), which nothing
-in this repository does yet.
+Only speaker ID 3 has been played. `tools/m4-j715-speaker-id.py` reads the
+speaker ID on Linux ([J715 README](../README.md#speaker-id)); nothing uses it
+to pick a filter set yet.
 
 ## Distribution and provenance
 

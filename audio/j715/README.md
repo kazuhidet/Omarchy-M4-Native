@@ -98,8 +98,29 @@ byte, but a louder graph (gain 0.60, a +4 dB low shelf at 150 Hz on the
 woofers and an output clamp per lane) that is outside that bound; it is not
 proposed here.
 
+## Speaker ID
+
+AID38 tunes each J715 by its speaker ID, 0 or 3, and the two filter sets
+differ. The ADT's first amplifier (`i2c3/audio-speaker@38`) names the GPIOs
+that carry it: `function-speaker-id0` and `function-speaker-id1` are pins 4
+and 13 of the AP pinctrl (0x39a000000), with `valid-speaker-ids` 0 and 3.
+Firmware leaves both as pulled-up inputs that no Linux driver claims.
+
+`tools/m4-j715-speaker-id.py` reads them through the GPIO character device,
+requesting both lines as-is (no direction, bias or drive flags) and releasing
+them at once; pin 4 is bit 0 and pin 13 bit 1, and any value other than 0 or
+3 is refused. On 2026-10-20, on one J715 whose macOS reports speaker ID 3, it
+returned 3 three times; the three pinctrl registers (pins 4, 13 and the
+amplifier reset, pin 15), the pin claims and the speaker protection state were
+the same before and after, and the lines were released. The pinctrl driver
+has no request or configuration hook, so an as-is request writes no register.
+
+The inputs are pulled up, so an unconnected pin reads 1 as well. That a speaker
+ID 0 J715 reads 0 on both pins follows from its ADT, but no such unit has been
+read.
+
 ## Not here yet
 
-Reading the speaker ID on Linux, so a speaker ID 0 Air gets its own filters,
-and a delivery path. Until those land, nothing in this repository installs
-these modules, the model, the filters or the routing.
+Using the speaker ID to pick the filter set, and a delivery path. Until those
+land, nothing in this repository installs these modules, the model, the
+filters or the routing.
