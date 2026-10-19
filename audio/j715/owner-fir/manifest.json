@@ -1,0 +1,196 @@
+{
+  "board": "apple,j715",
+  "generation_status": "Native arm64 output identities for AID38 speaker IDs 0 and 3; exact input and output hashes remain mandatory.",
+  "helpers": {
+    "measure-memory-j715": {
+      "sha256": "391a0a7f761a4874c7afb08792d1481c2a6d32fb08beebabaab8c183e7deee47",
+      "size": 35856
+    },
+    "measure-transfer": {
+      "sha256": "ffbd3d9f74ef5eafadda1cacca492d5e20cf2749bfc3798e26343b8d7b4d3bcc",
+      "size": 35616
+    }
+  },
+  "numpy": {
+    "filename": "numpy-2.5.3-cp313-cp313-macosx_14_0_arm64.whl",
+    "sha256": "f9a2353b37a1a9e78fd82b27ad7e2a32a2d036604d18f02b05e3136c62ca3b09",
+    "size": 5439695,
+    "url": "https://files.pythonhosted.org/packages/ab/2a/98282aa5b8f58b1157d440bb6282eed47e3632a5de53a714fbab17e659fe/numpy-2.5.3-cp313-cp313-macosx_14_0_arm64.whl"
+  },
+  "numpy_source": {
+    "filename": "numpy-2.5.3.tar.gz",
+    "sha256": "df2d5874ff183595a4ba404edd04f6bd9b5505c1d7708573f6a6c17489a67563",
+    "size": 20791231,
+    "url": "https://files.pythonhosted.org/packages/13/01/11703282db468b85f6f7b8c7f22d058de5970d5c7e60a3a8aaa313c3de36/numpy-2.5.3.tar.gz"
+  },
+  "owner_inputs": {
+    "AudioDSP": {
+      "path": "/System/Library/Components/AudioDSP.component/Contents/MacOS/AudioDSP",
+      "qualified": [
+        {
+          "macos": [
+            "27.0.1 (26A434)"
+          ],
+          "sha256": "910423a2624827acf777255084065ca407ec980fa30cf7f0711acfdd0e53e527",
+          "size": 22768320
+        }
+      ]
+    },
+    "builtin_speaker_out_general.propstrip": {
+      "path": "/System/Library/Audio/Tunings/AID38/DSP/Strips/builtin_speaker_out_general.propstrip",
+      "qualified": [
+        {
+          "macos": [
+            "27.0.1 (26A434)"
+          ],
+          "sha256": "78dfa9512f9af92bf3089396f7d9d3a52ed29e706ae4efbed281ace720813d98",
+          "size": 366
+        }
+      ]
+    },
+    "builtin_speaker_out_general_0.austrip": {
+      "path": "/System/Library/Audio/Tunings/AID38/DSP/Strips/builtin_speaker_out_general_0.austrip",
+      "qualified": [
+        {
+          "macos": [
+            "27.0.1 (26A434)"
+          ],
+          "sha256": "2e7f321fb6b5d8e032882082a357adaa63492bd10086a4f7bde720e24191855a",
+          "size": 54919
+        }
+      ]
+    },
+    "builtin_speaker_out_general_3.austrip": {
+      "path": "/System/Library/Audio/Tunings/AID38/DSP/Strips/builtin_speaker_out_general_3.austrip",
+      "qualified": [
+        {
+          "macos": [
+            "27.0.1 (26A434)"
+          ],
+          "sha256": "3566f8b6bd4968ce407acf20d6637e02ef0cc79fc255d67acf92b6f3ef3c28ee",
+          "size": 54918
+        }
+      ]
+    }
+  },
+  "python_version": "3.13.9",
+  "schema": 1,
+  "sources": {
+    "analyze_transfer.py": {
+      "sha256": "eea23caaf17d66a74079f8b62a71c11bcead275febbca5082efba3ff01339bf6",
+      "size": 5581
+    },
+    "inspect_strip.py": {
+      "sha256": "79a8540bd82b842cb36bb6fbebf7c8c7913c6a0ced8b4970a53b1d5287abbca1",
+      "size": 2765
+    },
+    "measure-memory-j715.c": {
+      "sha256": "a646216de561faa0b284824303881ceaf72632b8d9bae8806ba5e07f003bd4a6",
+      "size": 11400
+    },
+    "measure-transfer.c": {
+      "sha256": "0fd2357fa95bec944db248a8d10a4c1e717ebf1a46a010ea4d1842f0eb0e81f4",
+      "size": 8496
+    },
+    "qualify_memory.py": {
+      "sha256": "d44d7d91a0628afe9980b1f804b1008138e633070a21f16c7884088e03f4bd29",
+      "size": 5942
+    },
+    "run-memory.py": {
+      "sha256": "23ca4dd9efade53a3e3ff83e8287c62b9f3cbd461bac722dcb7f90fa19a57c58",
+      "size": 2829
+    },
+    "run-transfer.py": {
+      "sha256": "00b62c2da01c4f81e937d3983b84fe4cc5e5ce8299d3109ff7c544cff0d8bef6",
+      "size": 1405
+    }
+  },
+  "speakers": {
+    "0": {
+      "outputs": {
+        "j715-spk0-static-minimal-lane0-48000.wav": {
+          "sha256": "14e00af845cf256c314e4aa19b8bed953f9f80d95756e18f197c019b69f807a1",
+          "size": 32824
+        },
+        "j715-spk0-static-minimal-lane1-48000.wav": {
+          "sha256": "85653fd1f0d1edfe36df1cac5229e56ae724ff4bbe63abe533ad83b3c6c5d9ba",
+          "size": 32824
+        },
+        "j715-spk0-static-minimal-lane2-48000.wav": {
+          "sha256": "2c832cb8402f22db76057f0b39656eab2b9b816e49ef14f6e3dcf64eed8005fd",
+          "size": 4152
+        },
+        "j715-spk0-static-minimal-lane3-48000.wav": {
+          "sha256": "2c832cb8402f22db76057f0b39656eab2b9b816e49ef14f6e3dcf64eed8005fd",
+          "size": 4152
+        },
+        "j715-spk0-static-minimal-lane4-48000.wav": {
+          "sha256": "14e00af845cf256c314e4aa19b8bed953f9f80d95756e18f197c019b69f807a1",
+          "size": 32824
+        },
+        "j715-spk0-static-minimal-lane5-48000.wav": {
+          "sha256": "85653fd1f0d1edfe36df1cac5229e56ae724ff4bbe63abe533ad83b3c6c5d9ba",
+          "size": 32824
+        }
+      },
+      "presets": {
+        "Tone1.aupreset": {
+          "sha256": "24664326b3c0f414355e9747f323865951319e97cd2fecbe3479479819ff2732",
+          "size": 5369
+        },
+        "Tone2.aupreset": {
+          "sha256": "6c6819c544421c88f56fd7f104f51a6653b606ce2ffae2d5a72f8398758633c1",
+          "size": 5370
+        },
+        "analytical.aupreset": {
+          "sha256": "7ad2529e6e2e44db17f3a2ea8c2c92f95ef1506a58755bb2b4756e2d7e30b303",
+          "size": 5374
+        }
+      },
+      "strip": "builtin_speaker_out_general_0.austrip"
+    },
+    "3": {
+      "outputs": {
+        "j715-spk3-static-minimal-lane0-48000.wav": {
+          "sha256": "e018a332cb4d5aab3c354a8d900da5bc2776b74d52785ba29adb582379f2e8bd",
+          "size": 32824
+        },
+        "j715-spk3-static-minimal-lane1-48000.wav": {
+          "sha256": "ba9612f27bbb5f662a8b6111983b91281932b82d7579789cc9e416b82ed0961e",
+          "size": 32824
+        },
+        "j715-spk3-static-minimal-lane2-48000.wav": {
+          "sha256": "f74750965a59c70922415a40e2c7f4fc23dc88b267c825ac16ba9d4118594fed",
+          "size": 4152
+        },
+        "j715-spk3-static-minimal-lane3-48000.wav": {
+          "sha256": "f74750965a59c70922415a40e2c7f4fc23dc88b267c825ac16ba9d4118594fed",
+          "size": 4152
+        },
+        "j715-spk3-static-minimal-lane4-48000.wav": {
+          "sha256": "e018a332cb4d5aab3c354a8d900da5bc2776b74d52785ba29adb582379f2e8bd",
+          "size": 32824
+        },
+        "j715-spk3-static-minimal-lane5-48000.wav": {
+          "sha256": "ba9612f27bbb5f662a8b6111983b91281932b82d7579789cc9e416b82ed0961e",
+          "size": 32824
+        }
+      },
+      "presets": {
+        "Tone1.aupreset": {
+          "sha256": "46492150c1229facf083bb1ab3eb4270040acc2dd8b7fe50cb16c8c4b44990ab",
+          "size": 5369
+        },
+        "Tone2.aupreset": {
+          "sha256": "4b5c05f36662a25cf8851f1c28ad7a7d41f3db6a8df4a26a2d442a596f22c01e",
+          "size": 5370
+        },
+        "analytical.aupreset": {
+          "sha256": "b5ef4e938d0934c5a890d91b0cef2bf4606a6080b99b45102bbd768ba74b63a1",
+          "size": 5374
+        }
+      },
+      "strip": "builtin_speaker_out_general_3.austrip"
+    }
+  }
+}
