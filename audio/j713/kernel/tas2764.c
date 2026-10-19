@@ -1004,7 +1004,7 @@ static int tas2764_i2c_probe(struct i2c_client *client)
 	int result;
 
 	/* J713 shared reset must be joined before any generic SDZ/regmap path. */
-	if (of_machine_is_compatible("apple,j713") &&
+	if (of_machine_is_compatible(M4_BOARD) &&
 	    of_device_is_compatible(client->dev.of_node, "ti,sn012776"))
 		return tas2764_j713_probe(client);
 

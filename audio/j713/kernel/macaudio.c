@@ -1608,7 +1608,7 @@ struct macaudio_platform_cfg macaudio_fallback_cfg = {
  *    cares about that (assuming our general -20dB safe level standard holds).
  */
 static const struct of_device_id macaudio_snd_device_id[]  = {
-	{ .compatible = "apple,j713-audio" },
+	{ .compatible = M4_CARD_COMPAT },
 	/* Model   ID      Amp         Gain    Speakers */
 	/* j180    AID19   sn012776    10      1× 1W+1T */
 	{ .compatible = "apple,j180-macaudio", .data = &macaudio_j180_cfg },
@@ -1663,7 +1663,7 @@ static int macaudio_snd_platform_probe(struct platform_device *pdev)
 	int ret;
 	int i;
 
-	if (of_device_is_compatible(dev->of_node, "apple,j713-audio"))
+	if (of_device_is_compatible(dev->of_node, M4_CARD_COMPAT))
 		return macaudio_j713_probe(pdev);
 
 	of_id = of_match_device(macaudio_snd_device_id, dev);

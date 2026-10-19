@@ -63,7 +63,7 @@ static int j713_codec_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
 	return params_rate(params) == 48000 &&
-		params_channels(params) == (substream->stream ? 8 : 4) &&
+		params_channels(params) == (substream->stream ? M4_RX_CH : M4_TX_CH) &&
 		params_format(params) == (substream->stream ? SNDRV_PCM_FORMAT_S16_LE : SNDRV_PCM_FORMAT_S32_LE) ? 0 : -EINVAL;
 }
 static int j713_codec_fmt(struct snd_soc_dai *dai, unsigned int fmt)
@@ -83,9 +83,9 @@ static const struct snd_soc_dai_ops j713_codec_dai_ops = {
 };
 static struct snd_soc_dai_driver j713_codec_dai = {
 	.name = "tas2764 ASI1",
-	.playback = { .stream_name = "ASI1 Playback", .channels_min = 4, .channels_max = 4,
+	.playback = { .stream_name = "ASI1 Playback", .channels_min = M4_TX_CH, .channels_max = M4_TX_CH,
 		.rates = SNDRV_PCM_RATE_48000, .formats = SNDRV_PCM_FMTBIT_S32_LE },
-	.capture = { .stream_name = "ASI1 Capture", .channels_min = 8, .channels_max = 8,
+	.capture = { .stream_name = "ASI1 Capture", .channels_min = M4_RX_CH, .channels_max = M4_RX_CH,
 		.rates = SNDRV_PCM_RATE_48000, .formats = SNDRV_PCM_FMTBIT_S16_LE },
 	.ops = &j713_codec_dai_ops,
 };
