@@ -375,6 +375,15 @@ fn main() {
                         continue;
                     }
                     j713::Period::Stale => {
+                        // The samples are late, not wrong: model them so the coil estimate
+                        // includes them, but renew nothing from them.
+                        if cur_sample_rate == 48000 {
+                            for group in groups.values_mut() {
+                                for s in &mut group.speakers {
+                                    j713::model_gain(buf_read, |block| s.run_model(block, cur_sample_rate as f32));
+                                }
+                            }
+                        }
                         j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, l,
                                      &mut recovery, &sigquit, "stale capture backlog/read");
                         last_update = Instant::now();
