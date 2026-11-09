@@ -148,3 +148,37 @@ A rollback also sets a hold there, so the fix is not applied again until
   (`phase=3`), no faults and no gain limiting needed. A sustained run long
   enough to make the thermal model limit gain has not been recorded. The
   maintainer approved delivery through the package channel.
+
+## In-session re-arm (#132, under test)
+
+Branch `audio/j713-stale-recovery-132` lets protection recover without a reboot
+from a late capture period, or a capture overrun, during a session. It is a test
+build for J713 owners and is not in any release. A reboot is still the only
+supported recovery on released images.
+
+What the daemon does on a period that is too late (read 50 ms or more) or too
+deep (more than 512 frames queued):
+1. It releases `Speaker Volume Unlock`, so the kernel forces the group LOW at
+   once instead of waiting for the lease to run out.
+2. It keeps the speakers LOW for 5 s. The thermal model keeps its state and is
+   not advanced while LOW, so it can only overestimate the coil temperature.
+3. It claims ownership again and re-prepares capture. The kernel starts a fresh
+   generation. The daemon admits it and checks the amp senses again from
+   scratch, as it does at startup.
+4. It allows at most 3 re-arms in any 30 minutes. A fourth panics with
+   `J713 stale capture backlog/read: recovery limit reached`.
+
+A railed feedback sample, thermal faults and every other check still panic and
+stay latched.
+
+On the kernel side, `j713-mca.h` changes in two ways:
+- **Re-arm on prepare.** A prepare that finds the generation cancelled while
+  the transport is still configured first returns it to LOW, as the last close
+  does. It finishes both directions' cleanup while the clocks run, turns the
+  clocks off and stops the group.
+- **No latching for a cutoff.** Losing ownership at trigger, or sensing refusing
+  a cancelled generation, no longer sets `failed`. Any other refusal still does.
+
+The WirePlumber readiness gate still checks the generation recorded at boot.
+After a re-arm, a new WirePlumber start (for example a new login) is refused
+until the next reboot. Audio already playing in the session is unaffected.
