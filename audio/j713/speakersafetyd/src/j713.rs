@@ -316,7 +316,8 @@ mod tests {
         assert_eq!(r.count(), RECOVERY_LIMIT);
         // The first one leaves the window; one more is allowed, then refused again.
         assert!(r.admit(start + RECOVERY_WINDOW));
-        assert!(!r.admit(start + RECOVERY_WINDOW + Duration::from_secs(1)));
+        // The second one (at 1 s) is still inside the window half a second later.
+        assert!(!r.admit(start + RECOVERY_WINDOW + Duration::from_millis(500)));
     }
     #[test]
     fn refusal_boundaries() {
