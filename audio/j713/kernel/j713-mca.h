@@ -210,6 +210,7 @@ out:
  mutex_unlock(&t->lock);
  return ret;
 }
+static int j713_rearm_locked(struct j713_transport *t);
 static int j713_prepare(struct j713_transport *t, struct snd_pcm_substream *s)
 {
  struct mca_cluster *cl=&t->mca->clusters[0];
@@ -223,6 +224,13 @@ static int j713_prepare(struct j713_transport *t, struct snd_pcm_substream *s)
   writel(old|bit,t->mca->switch_base+4);
   if(readl(t->mca->switch_base+4)!=(old|bit)){ret=-EIO;goto out;}
   memset(&t->cleanup[s->stream],0,sizeof(t->cleanup[s->stream]));
+ }
+ /* #132: a cutoff or revoke ended the generation while the transport stayed
+  * configured. Return it to LOW the way the last close does, so the next
+  * owner prepare below starts a fresh generation instead of latching failed. */
+ if (t->configured && j713_audio_cancelled(t->audio)) {
+  ret = j713_rearm_locked(t);
+  if (ret) goto out;
  }
  if (!t->configured) {
   /* A discovered playback node may precede the protection daemon. */
@@ -305,7 +313,10 @@ static int j713_pcm_trigger(struct j713_transport *t, struct snd_pcm_substream *
  if (t->failed || t->stream[d]!=s || !(t->prepared & BIT(d))) {ret=-EPERM;goto out;}
  t->requested |= BIT(d);
  if (!t->configured && !d) goto out;
- if (!j713_audio_owned(t->audio)) {ret=-ECANCELED;goto fail;}
+ /* A cutoff is not a transport fault: refuse without latching failed (#132). */
+ if (!j713_audio_owned(t->audio) || j713_audio_cancelled(t->audio)) {
+  j713_audio_revoke(t->audio);ret=-ECANCELED;goto out;
+ }
  ret=j713_clocked(t);
  if (ret) goto fail;
  for (i=0;i<2;i++) {
@@ -336,7 +347,13 @@ static int j713_dai_trigger(struct j713_transport *t, struct snd_pcm_substream *
  if (!t->configured && !s->stream) goto out;
  for(i=0;i<2&&!ret;i++) if(t->dma_running & BIT(i)) ret=j713_stage(t,i,true);
  if (!ret && (t->dma_running & 2)) ret=j713_audio_sensing(t->audio);
- if (ret) {j713_audio_revoke(t->audio);t->failed=true;}
+ if (ret) {
+  /* Sensing refuses a cancelled generation with -EPERM; only that race is
+   * not latched (#132). Every other refusal stays a transport fault. */
+  bool cancelled=ret==-EPERM && j713_audio_cancelled(t->audio);
+  j713_audio_revoke(t->audio);
+  if (!cancelled) t->failed=true;
+ }
 out:
  mutex_unlock(&t->lock);
  return ret;
@@ -396,6 +413,24 @@ static int j713_sync_stopped_locked(struct j713_transport *t,struct snd_pcm_subs
  ret=m4_cleanup_direction_once(&t->cleanup[s->stream],&io,s->stream?0x10:1);
  if(c.frame_locked)mutex_unlock(&t->frame_lock);
  if(ret){t->failed=true;j713_audio_revoke(t->audio);}
+ return ret;
+}
+/* #132: from a cancelled, stopped transport, finish each direction's cleanup
+ * while the clocks still run, turn the clocks off and stop the group, as
+ * j713_port_close does without releasing the port. Any failure latches. */
+static int j713_rearm_locked(struct j713_transport *t)
+{
+ struct mca_cluster *cl=&t->mca->clusters[0];
+ unsigned int i;
+ int ret=0;
+ if (READ_ONCE(t->dma_running)) return -EBUSY;
+ for(i=0;i<2&&!ret;i++) if(t->stream[i]) ret=j713_sync_stopped_locked(t,t->stream[i]);
+ if (ret) return ret;
+ cl->clocks_in_use[0]=false;cl->clocks_in_use[1]=false;
+ mca_fe_disable_clocks(cl);
+ t->configured=false;
+ ret=j713_audio_quiesced(t->audio);
+ if (ret) t->failed=true;
  return ret;
 }
 static int j713_sync_stop(struct snd_soc_component *component,struct snd_pcm_substream *s)

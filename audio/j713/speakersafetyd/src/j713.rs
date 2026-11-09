@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 use alsa::ctl::{Ctl, ElemId, ElemIface, ElemType, ElemValue};
+use std::collections::VecDeque;
 use std::ffi::CString;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub const FRAMES: usize = 1024;
 pub const BUFFER_FRAMES: usize = 2048;
@@ -10,6 +11,47 @@ const MAX_BACKLOG: i64 = 512;
 const CHANNELS: usize = 8;
 const RATE: u64 = 48000;
 const LEASE_NS: u64 = 50_000_000;
+/// #132: a late period ends its generation, then protection re-arms in this
+/// process with the thermal state it had. At most this many in any window.
+pub const RECOVERY_LIMIT: usize = 3;
+pub const RECOVERY_WINDOW: Duration = Duration::from_secs(30 * 60);
+/// The speakers stay LOW at least this long before a new generation. The model
+/// is not advanced while LOW, so it only overestimates the coil temperature.
+pub const RECOVERY_COOLDOWN: Duration = Duration::from_secs(5);
+
+/// What one capture period allows.
+#[derive(Debug, PartialEq)]
+pub enum Period {
+    /// No generation, a generation boundary or old queued data: never model or renew.
+    Skip,
+    /// Fresh feedback: model it, then renew.
+    Fresh,
+    /// Too late or too deep to renew from. The caller cuts the speakers off and re-arms.
+    Stale,
+}
+
+/// Bounds in-process re-arming after stale periods (#132).
+#[derive(Default)]
+pub struct Recovery {
+    times: VecDeque<Instant>,
+}
+
+impl Recovery {
+    /// Records one re-arm at `now`, or refuses if the window already holds the limit.
+    pub fn admit(&mut self, now: Instant) -> bool {
+        while self.times.front().is_some_and(|t| now.duration_since(*t) >= RECOVERY_WINDOW) {
+            self.times.pop_front();
+        }
+        if self.times.len() >= RECOVERY_LIMIT {
+            return false;
+        }
+        self.times.push_back(now);
+        true
+    }
+    pub fn count(&self) -> usize {
+        self.times.len()
+    }
+}
 
 pub fn level(reduction: f32) -> f32 {
     assert!(reduction.is_finite() && reduction <= 0.0, "J713 invalid thermal reduction");
@@ -43,14 +85,14 @@ struct Freshness {
 
 impl Freshness {
     fn period(&mut self, before: i64, after: i64, frames: usize, available: i64,
-              read_ns: u64, rail: bool, rate: i32) -> bool {
+              read_ns: u64, rail: bool, rate: i32) -> Period {
         self.pending = false;
         assert!(frames == FRAMES && available >= 0, "J713 capture geometry/state");
         if before <= 0 || after <= 0 || before != after || rate == 0 {
             self.generation = 0;
             self.sequence = 0;
             self.admitted = false;
-            return false;
+            return Period::Skip;
         }
         assert_eq!(rate, RATE as i32, "J713 active sample rate");
         if self.generation != after {
@@ -61,13 +103,17 @@ impl Freshness {
         if !self.admitted {
             // Discard the boundary period and all queued old-generation data.
             self.admitted = available == 0;
-            return false;
+            return Period::Skip;
         }
-        assert!(available <= MAX_BACKLOG && read_ns < LEASE_NS,
-                "J713 stale capture backlog/read");
+        // A railed feedback sample stays fatal, late or not.
         assert!(!rail, "J713 feedback rail");
+        if available > MAX_BACKLOG || read_ns >= LEASE_NS {
+            // Never renew from it, and admit nothing more from this generation.
+            self.admitted = false;
+            return Period::Stale;
+        }
         self.pending = true;
-        true
+        Period::Fresh
     }
 
     fn renewal(&mut self, generation: i64, available: i64, processing_ns: u64) -> [i64; 2] {
@@ -118,14 +164,22 @@ impl Lease {
     }
 
     pub fn period(&mut self, ctl: &Ctl, read: Read, frames: usize, available: i64,
-                  rate: i32, samples: &[i16]) -> bool {
+                  rate: i32, samples: &[i16]) -> Period {
         assert!(samples.len() == FRAMES * CHANNELS, "J713 frame length");
         let generation = self.generation(ctl);
-        let accepted = self.freshness.period(read.generation, generation, frames, available,
+        let period = self.freshness.period(read.generation, generation, frames, available,
             read.started.elapsed().as_nanos().try_into().unwrap(),
             samples.iter().any(|x| *x == i16::MIN || *x == i16::MAX), rate);
-        if accepted { self.completed = Some(Instant::now()); }
-        accepted
+        if period == Period::Fresh { self.completed = Some(Instant::now()); }
+        period
+    }
+
+    /// Forgets the ended generation, so the next one is admitted and its
+    /// monitors checked from scratch. The thermal state lives elsewhere and stays.
+    pub fn reset(&mut self) {
+        self.freshness = Freshness::default();
+        self.completed = None;
+        self.monitors_generation = 0;
     }
 
     pub fn needs_monitors(&self) -> bool {
@@ -152,8 +206,8 @@ mod tests {
     use super::*;
     fn ready() -> Freshness {
         let mut s = Freshness::default();
-        assert!(!s.period(1, 1, FRAMES, 0, 1, false, 48000));
-        assert!(s.period(1, 1, FRAMES, 0, 10_666_667, false, 48000));
+        assert_eq!(s.period(1, 1, FRAMES, 0, 1, false, 48000), Period::Skip);
+        assert_eq!(s.period(1, 1, FRAMES, 0, 10_666_667, false, 48000), Period::Fresh);
         s
     }
     #[test]
@@ -176,7 +230,7 @@ mod tests {
     #[test]
     fn idle_and_wrong_active_rate() {
         let mut s = ready();
-        assert!(!s.period(1, 1, FRAMES, 0, 1, false, 0));
+        assert_eq!(Period::Skip, s.period(1, 1, FRAMES, 0, 1, false, 0));
         assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(||s.renewal(1,0,1))).is_err());
         for rate in [44100, -1] {
             let mut s = ready();
@@ -195,7 +249,7 @@ mod tests {
     fn silence_and_sequence() {
         let mut s = ready();
         assert_eq!(s.renewal(1, 0, 1), [1, 1]);
-        assert!(s.period(1, 1, FRAMES, 0, 10_666_667, false, 48000));
+        assert_eq!(Period::Fresh, s.period(1, 1, FRAMES, 0, 10_666_667, false, 48000));
         assert_eq!(s.renewal(1, 0, 1), [1, 2]);
         assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(||s.renewal(1,0,1))).is_err());
     }
@@ -204,33 +258,69 @@ mod tests {
         let mut s = ready();
         for sequence in 1..=300 {
             assert_eq!(s.renewal(1, 0, 3_000_000), [1, sequence]);
-            assert!(s.period(1, 1, FRAMES, 0, 10_666_667, false, 48000));
+            assert_eq!(Period::Fresh, s.period(1, 1, FRAMES, 0, 10_666_667, false, 48000));
         }
-        assert!(!s.period(1, 0, FRAMES, 0, 1, false, 0));
+        assert_eq!(Period::Skip, s.period(1, 0, FRAMES, 0, 1, false, 0));
         assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(||s.renewal(1,0,1))).is_err());
     }
     #[test]
     fn no_epoch_and_read_boundary() {
         let mut s = Freshness::default();
-        assert!(!s.period(0, 0, FRAMES, 0, 1, false, 48000));
-        assert!(!s.period(0, 0, FRAMES, 0, 1, false, 48000));
+        assert_eq!(Period::Skip, s.period(0, 0, FRAMES, 0, 1, false, 48000));
+        assert_eq!(Period::Skip, s.period(0, 0, FRAMES, 0, 1, false, 48000));
         let mut s = ready();
-        assert!(!s.period(2, 1, FRAMES, 0, 1, false, 48000));
+        assert_eq!(Period::Skip, s.period(2, 1, FRAMES, 0, 1, false, 48000));
         assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(||s.renewal(1,0,1))).is_err());
     }
     #[test]
     fn boundary_and_backlog_discard() {
         let mut s = ready();
-        assert!(!s.period(1, 2, FRAMES, 512, 1, false, 48000));
-        assert!(!s.period(2, 2, FRAMES, 512, 1, false, 48000));
-        assert!(!s.period(2, 2, FRAMES, 0, 1, false, 48000));
-        assert!(s.period(2, 2, FRAMES, 0, 1, false, 48000));
+        assert_eq!(Period::Skip, s.period(1, 2, FRAMES, 512, 1, false, 48000));
+        assert_eq!(Period::Skip, s.period(2, 2, FRAMES, 512, 1, false, 48000));
+        assert_eq!(Period::Skip, s.period(2, 2, FRAMES, 0, 1, false, 48000));
+        assert_eq!(Period::Fresh, s.period(2, 2, FRAMES, 0, 1, false, 48000));
         assert_eq!(s.renewal(2, 0, 1), [2, 1]);
-        assert!(!s.period(2, 0, FRAMES, 0, 1, false, 48000));
+        assert_eq!(Period::Skip, s.period(2, 0, FRAMES, 0, 1, false, 48000));
+    }
+    #[test]
+    fn stale_periods_end_the_generation() {
+        for (available, age) in [(513, 1), (0, LEASE_NS)] {
+            let mut s = ready();
+            assert_eq!(s.period(1, 1, FRAMES, available, age, false, 48000), Period::Stale);
+            // Nothing from that generation renews, even fresh data after it.
+            assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(||s.renewal(1,0,1))).is_err());
+            assert_eq!(s.period(1, 1, FRAMES, 0, 1, false, 48000), Period::Skip);
+            assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(||s.renewal(1,0,1))).is_err());
+        }
+        // The edges stay fresh.
+        let mut s = ready();
+        assert_eq!(s.period(1, 1, FRAMES, 512, LEASE_NS - 1, false, 48000), Period::Fresh);
+    }
+    #[test]
+    fn a_new_generation_after_a_stale_period_is_admitted_afresh() {
+        let mut s = ready();
+        assert_eq!(s.period(1, 1, FRAMES, 513, 1, false, 48000), Period::Stale);
+        assert_eq!(s.period(0, 0, FRAMES, 0, 1, false, 48000), Period::Skip);
+        assert_eq!(s.period(2, 2, FRAMES, 0, 1, false, 48000), Period::Skip);
+        assert_eq!(s.period(2, 2, FRAMES, 0, 1, false, 48000), Period::Fresh);
+        assert_eq!(s.renewal(2, 0, 1), [2, 1]);
+    }
+    #[test]
+    fn recovery_is_bounded_per_window() {
+        let start = Instant::now();
+        let mut r = Recovery::default();
+        for i in 0..RECOVERY_LIMIT {
+            assert!(r.admit(start + Duration::from_secs(i as u64)));
+        }
+        assert!(!r.admit(start + Duration::from_secs(60)));
+        assert_eq!(r.count(), RECOVERY_LIMIT);
+        // The first one leaves the window; one more is allowed, then refused again.
+        assert!(r.admit(start + RECOVERY_WINDOW));
+        assert!(!r.admit(start + RECOVERY_WINDOW + Duration::from_secs(1)));
     }
     #[test]
     fn refusal_boundaries() {
-        for (available, age, rail) in [(513, 1, false), (0, LEASE_NS, false), (0, 1, true)] {
+        for (available, age, rail) in [(0, 1, true), (513, 1, true), (0, LEASE_NS, true)] {
             let mut s = ready();
             assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(||s.period(1,1,FRAMES,available,age,rail, 48000))).is_err());
         }

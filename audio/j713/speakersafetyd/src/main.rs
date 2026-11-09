@@ -13,7 +13,7 @@ use std::panic::{catch_unwind, resume_unwind};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use clap::Parser;
 use clap_verbosity_flag::{InfoLevel, Verbosity};
@@ -80,6 +80,45 @@ impl Default for SpeakerGroup {
             gain: f32::NAN,
         }
     }
+}
+
+/// #132: re-arm J713 protection in this process after a stale period or a
+/// capture overrun. Releasing Speaker Volume Unlock forces the speaker group
+/// LOW before anything else. Past the recovery budget this panics, as before.
+/// The thermal model keeps its state and is not advanced while the group is
+/// LOW, so it can only overestimate the coil temperature.
+fn j713_recover(ctl: &alsa::ctl::Ctl, pcm: &alsa::pcm::PCM, unlock: &types::Elem,
+                lease: &mut j713::Lease, recovery: &mut j713::Recovery,
+                sigquit: &AtomicBool, reason: &str) {
+    unlock.release(ctl);
+    if !recovery.admit(Instant::now()) {
+        panic!("J713 stale capture backlog/read: recovery limit reached ({})", reason);
+    }
+    warn!("J713 protection cut off ({}); re-arming, {} of {} in {} min",
+          reason, recovery.count(), j713::RECOVERY_LIMIT, j713::RECOVERY_WINDOW.as_secs() / 60);
+    let _ = pcm.drop();
+    let until = Instant::now() + j713::RECOVERY_COOLDOWN;
+    while Instant::now() < until {
+        if sigquit.load(Ordering::Relaxed) {
+            panic!("SIGQUIT received");
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    unlock.claim(ctl);
+    lease.reset();
+    // The kernel refuses with EBUSY while the other direction is still stopping.
+    let mut tries = 0;
+    loop {
+        match pcm.prepare() {
+            Ok(()) => break,
+            Err(e) if e.errno() == libc::EBUSY && tries < 20 => {
+                tries += 1;
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Err(e) => panic!("J713 capture re-arm: {}", e),
+        }
+    }
+    info!("J713 protection re-armed; waiting for a new generation");
 }
 
 fn main() {
@@ -257,6 +296,7 @@ fn main() {
         buf.resize(globals.period * globals.channels, 0i16);
 
         let mut once_nominal = false;
+        let mut recovery = j713::Recovery::default();
 
         loop {
             if sigquit.load(Ordering::Relaxed) {
@@ -273,6 +313,13 @@ fn main() {
                 Err(e) => {
                     if sigquit.load(Ordering::Relaxed) {
                         panic!("SIGQUIT received");
+                    }
+                    if j713 && e.errno() == libc::EPIPE {
+                        // A cutoff or an overrun stopped capture (#132).
+                        j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, lease.as_mut().unwrap(),
+                                     &mut recovery, &sigquit, "capture stopped");
+                        last_update = Instant::now();
+                        continue;
                     }
                     if !j713 && e.errno() == libc::ESTRPIPE {
                         warn!("Suspend detected!");
@@ -320,10 +367,19 @@ fn main() {
 
             if let Some(l) = lease.as_mut() {
                 let available = pcm.as_ref().unwrap().avail().expect("J713 capture availability");
-                if !l.period(&ctl, epoch.unwrap(), read, available, cur_sample_rate, buf_read) {
-                    // Never model or renew from a generation boundary or old queued frames.
-                    last_update = Instant::now();
-                    continue;
+                match l.period(&ctl, epoch.unwrap(), read, available, cur_sample_rate, buf_read) {
+                    j713::Period::Fresh => {}
+                    j713::Period::Skip => {
+                        // Never model or renew from a generation boundary or old queued frames.
+                        last_update = Instant::now();
+                        continue;
+                    }
+                    j713::Period::Stale => {
+                        j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, l,
+                                     &mut recovery, &sigquit, "stale capture backlog/read");
+                        last_update = Instant::now();
+                        continue;
+                    }
                 }
             }
 

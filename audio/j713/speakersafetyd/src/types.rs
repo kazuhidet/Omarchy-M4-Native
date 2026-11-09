@@ -45,6 +45,17 @@ impl Elem {
         new_elem
     }
 
+    /// Gives up this element's lock. For Speaker Volume Unlock on J713, the
+    /// kernel forces the speaker group LOW at once (#132).
+    pub fn release(&self, card: &Ctl) {
+        card.elem_unlock(&self.id).expect("J713 release ownership");
+    }
+
+    /// Takes the lock again after release().
+    pub fn claim(&self, card: &Ctl) {
+        helpers::lock_el(card, &self.id, &self.elem_name);
+    }
+
     pub fn read_int(&mut self, card: &Ctl) -> i32 {
         helpers::read_ev(card, &mut self.val, &self.elem_name);
 
