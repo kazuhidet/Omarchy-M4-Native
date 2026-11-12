@@ -31,6 +31,8 @@ NOTCH_UNIT = 'usr/lib/systemd/user/omarchy-m4-notch.service'
 SPEAKER_DROP_IN = 'usr/lib/systemd/system/m4-j713-audio-register.service.d/20-m4-speaker-module.conf'
 MCA_DROP_IN = 'usr/lib/systemd/system/m4-j713-audio-register.service.d/25-m4-mca-module.conf'
 SPEAKER_DEP = 'omarchy-m4-speaker>=1-5'
+WQ_CPUMASK_TOOL = 'usr/lib/omarchy-m4/m4-wq-cpumask'
+WQ_CPUMASK_UNIT = 'usr/lib/systemd/system/m4-wq-cpumask.service'
 GPU_DROP_IN = 'usr/lib/systemd/system/m4-gpu.service.d/20-m4-gpu-module.conf'
 HEADPHONES_DROP_IN = 'usr/lib/systemd/system/m4-j713-audio-register.service.d/30-m4-headphones.conf'
 CPU_IDLE_UNIT = 'usr/lib/systemd/system/m4-cpu-idle.service'
@@ -375,6 +377,10 @@ def check_package(channel, package, info, files, root, joins=None):
         require(files.get(SPEAKER_DROP_IN) == (0o644, sha(drop_in)), 'Speaker module drop-in differs')
         mca_drop = (ROOT / 'packaging/omarchy-m4/omarchy-m4-speaker/25-m4-mca-module.conf').read_bytes()
         require(files.get(MCA_DROP_IN) == (0o644, sha(mca_drop)), 'MCA module drop-in differs')
+        wq_tool = (ROOT / 'tools/m4-wq-cpumask.sh').read_bytes()
+        require(files.get(WQ_CPUMASK_TOOL) == (0o755, sha(wq_tool)), 'Packaged workqueue CPU mask tool differs')
+        wq_unit = (ROOT / 'packaging/omarchy-m4/omarchy-m4-speaker/m4-wq-cpumask.service').read_bytes()
+        require(files.get(WQ_CPUMASK_UNIT) == (0o644, sha(wq_unit)), 'Workqueue CPU mask unit differs')
         identity = channel['mca_identity']
         helper = runpy.run_path(str(root / 'usr/bin/m4-speaker-module'))
         staged = helper['MCA_STAGED']
