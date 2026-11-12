@@ -428,6 +428,27 @@ components with `sudo m4-speaker-module` and
 `sudo m4-speaker-module --component mca`, then read
 `journalctl -b -u m4-j713-audio-register.service` before retrying.
 
+### omarchy-m4-speaker 1-6
+
+- **Writeback stays off CPU 0** ([#132](https://github.com/kazuhidet/Omarchy-M4-Native/issues/132)):
+  `m4-wq-cpumask.service` runs `/usr/lib/omarchy-m4/m4-wq-cpumask` once, early in
+  boot, before audio registration and speaker protection. On an M4
+  (`apple,t8132`) it writes every possible CPU but 0 to
+  `/sys/devices/virtual/workqueue/cpumask`, so unbound workqueues, background
+  writeback among them, run on the other cores. Every device interrupt and the
+  protection's period completion stay on CPU 0. Writeback holding CPU 0 with
+  preemption disabled delayed the daemon's wakeup by 13 to 15 ms, past the
+  10.7 ms freshness limit, which ended protection with
+  `J713 stale capture backlog/read`. Details:
+  [speaker protection startup](j713-protection-startup.md#writeback-on-cpu-0-132).
+- **Nothing else changes:** per-CPU work, interrupts and softirqs stay where they
+  are, and no protection setting changes. The mask lasts until the next boot.
+  Another board, an unreadable CPU list or a refused write leaves the mask
+  alone, and the unit never fails the boot. The package enables the unit on
+  install and upgrade and disables it on removal; restart once to apply it.
+- **Package only:** neither audio module changes. The speaker and MCA pins and
+  their source joins are unchanged.
+
 ## Connecting new installs
 
 The release root builder (`tools/prepare-j713-release.py`) adds

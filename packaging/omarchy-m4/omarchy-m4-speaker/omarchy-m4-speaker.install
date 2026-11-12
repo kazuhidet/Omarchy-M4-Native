@@ -1,0 +1,13 @@
+post_install() {
+  systemctl enable m4-wq-cpumask.service >/dev/null 2>&1 || true
+  echo '==> Restart once to keep writeback off CPU 0 for speaker protection (m4-wq-cpumask, #132).'
+}
+
+post_upgrade() {
+  post_install
+}
+
+pre_remove() {
+  systemctl disable m4-wq-cpumask.service >/dev/null 2>&1 || true
+  echo '==> The workqueue CPU mask stays until the next restart.'
+}

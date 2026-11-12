@@ -289,6 +289,9 @@ class ChannelBinaryJoinTests(unittest.TestCase):
         good.update((path, (0o644, digest)) for path, digest in CHANNEL['mca_module'].items())
         mca_drop = (ROOT / 'packaging/omarchy-m4/omarchy-m4-speaker/25-m4-mca-module.conf').read_bytes()
         good[CHECK.MCA_DROP_IN] = (0o644, hashlib.sha256(mca_drop).hexdigest())
+        good[CHECK.WQ_CPUMASK_TOOL] = (0o755, hashlib.sha256((ROOT / 'tools/m4-wq-cpumask.sh').read_bytes()).hexdigest())
+        good[CHECK.WQ_CPUMASK_UNIT] = (0o644, hashlib.sha256(
+            (ROOT / 'packaging/omarchy-m4/omarchy-m4-speaker/m4-wq-cpumask.service').read_bytes()).hexdigest())
         package = Path('omarchy-m4-speaker-1-5-aarch64.pkg.tar.zst')
         info = {'pkgname': ['omarchy-m4-speaker'], 'pkgver': ['1-5'], 'arch': ['aarch64']}
         with tempfile.TemporaryDirectory() as temp:

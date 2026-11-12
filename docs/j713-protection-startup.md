@@ -133,6 +133,55 @@ The alpha.1 module and manifest are kept in `/var/lib/omarchy-m4/speaker-module/
 A rollback also sets a hold there, so the fix is not applied again until
 `/var/lib/omarchy-m4/speaker-module/hold` is removed.
 
+## Writeback on CPU 0 (#132)
+
+A second way to reach `J713 stale capture backlog/read`, long after startup, is
+heavy small-file writing
+([#132](https://github.com/kazuhidet/Omarchy-M4-Native/issues/132)). The daemon
+must read each 1024-frame period with at most 512 frames (10.7 ms) queued.
+
+- **The path to the daemon:** every device interrupt lands on CPU 0. The ADMAC
+  interrupt schedules its tasklet; the PCM is nonatomic, so the dmaengine
+  completion only queues work on CPU 0 (`schedule_work()` in
+  `sound/core/pcm_dmaengine.c`). A per-CPU kworker on CPU 0 then calls
+  `snd_pcm_period_elapsed()`, which wakes the daemon.
+- **What blocks it:** background writeback is an unbound workqueue and can run
+  on CPU 0. `wb_writeback()` holds `wb->list_lock` across `queue_io()`, and
+  `move_expired_inodes()` moves every expired dirty inode without dropping it.
+  After extracting about 1.6 million files that took up to 9.2 ms per call, and
+  with preemption disabled nothing else could run on CPU 0. The wakeup was 13.3
+  and 14.5 ms late in the two traced failures.
+- **Priority does not help:** queueing the completion on `system_highpri_wq`
+  (nice -20) still failed within 4 minutes (11.2 ms), because the writeback
+  section is not preemptible.
+- **The change:** `m4-wq-cpumask.service` (in `omarchy-m4-speaker` 1-6) writes
+  every possible CPU but 0 to `/sys/devices/virtual/workqueue/cpumask` early in
+  boot, before audio registration and protection. Unbound work, writeback
+  included, then runs on CPUs 1 and up; per-CPU work, interrupts, softirqs and
+  protection itself are unchanged.
+
+Evidence, on the owner's 15-inch Air (J715, same SoC and protection stack): an
+encrypted tar received over USB-C Ethernet at about 82 MB/s, decrypted, hashed
+and extracted onto ext4, about 71 GB and 1.63 million files per run. Without the
+change, every traced run on the stock system stopped protection during the
+second run, after 20 to 26 minutes. With the mask, none of six traced runs of
+96 to 100 minutes (five or six runs of the load each) stopped it: two with the
+mask set by hand, four with the unit setting it at boot (1.21 to 1.26 s into
+boot). Two of the four also pinned the daemon to CPU 0 and one queued the
+completion on `system_highpri_wq`. In the four boot-time runs:
+
+- `move_expired_inodes()` ran 8,608 to 15,436 times per run, up to 9.3 ms, and
+  never on CPU 0.
+- In the three traced in full, the longest delay from the ADMAC interrupt to
+  the daemon running was 5.8 to 6.6 ms, against 10.7 ms. Neither the CPU 0 pin
+  nor the high-priority completion reduced it; the remaining delay was not
+  traced to its source.
+
+The same writeback section exists on M1 (up to 30.5 ms on an ext4 M1 Max), but
+there the stock driver wakes the daemon from interrupt context, not from a
+kworker. Not yet verified on a J713; the in-session re-arm from #196 is the
+separate safety net for a late period this does not prevent.
+
 ## Limits
 
 - **Continuous control readers still starve protection.** With two loops

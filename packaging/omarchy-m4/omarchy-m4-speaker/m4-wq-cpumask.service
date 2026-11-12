@@ -1,0 +1,20 @@
+# Installed by omarchy-m4-speaker. Keeps unbound workqueues, and so background
+# writeback, off CPU 0 before audio registration and speaker protection start
+# (#132). Only an M4 (apple,t8132) is changed, until the next boot; a refusal
+# never fails the boot.
+[Unit]
+Description=Keep unbound workqueues off CPU 0 for M4 speaker protection (omarchy-m4-speaker)
+Documentation=https://github.com/kazuhidet/Omarchy-M4-Native/issues/132
+DefaultDependencies=no
+ConditionPathExists=/sys/devices/virtual/workqueue/cpumask
+Before=sysinit.target shutdown.target
+Before=m4-j713-audio-register.service speakersafetyd-j713.service
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/omarchy-m4/m4-wq-cpumask
+
+[Install]
+WantedBy=sysinit.target
