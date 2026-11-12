@@ -42,6 +42,16 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 CHANNEL = json.loads((ROOT / 'packaging/omarchy-m4/channel.json').read_text())
 RELEASE = CHANNEL['kernel']['release']
+
+
+def recipe_version(name):
+    """pkgver-pkgrel of a channel recipe, the version the sandbox repository carries."""
+    recipe = (ROOT / 'packaging/omarchy-m4' / name / 'PKGBUILD').read_text()
+    fields = dict(line.split('=', 1) for line in recipe.splitlines() if line.startswith(('pkgver=', 'pkgrel=')))
+    return f"{fields['pkgver']}-{fields['pkgrel']}"
+
+
+SPEAKER_VERSION = recipe_version('omarchy-m4-speaker')
 # Packages an Air's 1-5 setup script does not list; omarchy-m4-boot's dependencies bring them.
 BROUGHT_BY_BOOT = ('omarchy-m4-gpu', 'omarchy-m4-headphones', 'omarchy-m4-cpu', 'omarchy-m4-evdi',
                    'omarchy-m4-backlight')
@@ -405,7 +415,7 @@ def main():
             require(snapshot(root) == before, 'Inspection changed files')
             # Synthetic selector for this sandbox, not a copy of a released setup script.
             # It omits the packages an older request did not name, including speaker.
-            # omarchy-m4-boot's versioned dependency must still bring speaker 1-5.
+            # omarchy-m4-boot's versioned dependency (>=1-5) must still bring the channel's speaker.
             omitted = BROUGHT_BY_BOOT + ('omarchy-m4-speaker',)
             source = (ROOT / 'tools/m4-channel-setup.py').read_text()
             listed = source[source.index('PACKAGES = ('):source.index(')', source.index('PACKAGES = (')) + 1]
@@ -426,9 +436,9 @@ def main():
                         require(brought not in results[0]['install'] and
                                 run(*pacman, '-Q', brought, check=False).returncode == 0,
                                 'The first run from the older request did not install ' + brought)
-                    require('omarchy-m4-speaker 1-5' in run(*pacman, '-Q', 'omarchy-m4-speaker',
-                                                           capture_output=True, text=True).stdout,
-                            'The boot dependency did not upgrade the speaker stub to 1-5')
+                    require(run(*pacman, '-Q', 'omarchy-m4-speaker', capture_output=True, text=True).stdout.split()
+                            == ['omarchy-m4-speaker', SPEAKER_VERSION],
+                            'The boot dependency did not upgrade the speaker stub to ' + SPEAKER_VERSION)
                     after_first = snapshot(root)
                     assert_base_kernel(root, base_files)
                 conf = (root / 'etc/pacman.conf').read_text()
@@ -484,6 +494,12 @@ def main():
             mca_drop = ROOT / 'packaging/omarchy-m4/omarchy-m4-speaker/25-m4-mca-module.conf'
             installed_drop = root / 'usr/lib/systemd/system/m4-j713-audio-register.service.d/25-m4-mca-module.conf'
             require(installed_drop.read_bytes() == mca_drop.read_bytes(), 'The MCA drop-in is not the packaged file')
+            wq_unit = ROOT / 'packaging/omarchy-m4/omarchy-m4-speaker/m4-wq-cpumask.service'
+            require((root / 'usr/lib/systemd/system/m4-wq-cpumask.service').read_bytes() == wq_unit.read_bytes()
+                    and (root / 'usr/lib/omarchy-m4/m4-wq-cpumask').read_bytes()
+                    == (ROOT / 'tools/m4-wq-cpumask.sh').read_bytes()
+                    and os.access(root / 'usr/lib/omarchy-m4/m4-wq-cpumask', os.X_OK),
+                    'The workqueue CPU mask step is missing')
             for path, digest in CHANNEL['gpu_module'].items():
                 require(sha((root / path).read_bytes()) == digest, 'Staged GPU module missing or wrong: ' + path)
             require((root / 'usr/lib/systemd/system/m4-gpu.service.d/20-m4-gpu-module.conf').is_file()
