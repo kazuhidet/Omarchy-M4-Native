@@ -104,21 +104,32 @@ fn j713_recover(ctl: &alsa::ctl::Ctl, pcm: &alsa::pcm::PCM, unlock: &types::Elem
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+    // Prepare once while nobody owns protection: the kernel finishes the cancelled
+    // generation's cleanup, turns the clocks off and stops the group. Stopping the group
+    // marks the control owner as cancelled, so this must happen before the claim below;
+    // it ends with EPERM because there is no owner yet.
+    j713_prepare(pcm, true, "J713 capture quiesce");
     unlock.claim(ctl);
     lease.reset();
-    // The kernel refuses with EBUSY while the other direction is still stopping.
+    j713_prepare(pcm, false, "J713 capture re-arm");
+    info!("J713 protection re-armed; waiting for a new generation");
+}
+
+/// Prepare capture, retrying while the kernel refuses with EBUSY because the other
+/// direction is still stopping. With `unowned`, EPERM (no owner) is the expected end.
+fn j713_prepare(pcm: &alsa::pcm::PCM, unowned: bool, what: &str) {
     let mut tries = 0;
     loop {
         match pcm.prepare() {
-            Ok(()) => break,
+            Ok(()) => return,
+            Err(e) if unowned && e.errno() == libc::EPERM => return,
             Err(e) if e.errno() == libc::EBUSY && tries < 20 => {
                 tries += 1;
                 std::thread::sleep(Duration::from_millis(100));
             }
-            Err(e) => panic!("J713 capture re-arm: {}", e),
+            Err(e) => panic!("{}: {}", what, e),
         }
     }
-    info!("J713 protection re-armed; waiting for a new generation");
 }
 
 fn main() {

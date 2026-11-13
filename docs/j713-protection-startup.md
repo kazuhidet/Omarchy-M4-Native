@@ -164,10 +164,16 @@ before the renewal):
    once instead of waiting for the lease to run out.
 2. It keeps the speakers LOW for 5 s. The thermal model keeps its state and is
    not advanced while LOW, so it can only overestimate the coil temperature.
-3. It claims ownership again and re-prepares capture. The kernel starts a fresh
+3. It prepares capture once while it does not own protection: the kernel
+   finishes the cancelled generation's cleanup, turns the clocks off and stops
+   the group, and refuses the prepare with EPERM because there is no owner.
+   Stopping the group marks the owner as cancelled, so this has to come before
+   the claim (a first version claimed first, and the prepare after the claim
+   then failed with EPERM on a J715).
+4. It claims ownership again and prepares capture. The kernel starts a fresh
    generation. The daemon admits it and checks the amp senses again from
    scratch, as it does at startup.
-4. It allows at most 3 re-arms in any 30 minutes. A fourth panics with
+5. It allows at most 3 re-arms in any 30 minutes. A fourth panics with
    `J713 stale capture backlog/read: recovery limit reached`.
 
 A railed feedback sample, thermal faults and every other check still panic and
