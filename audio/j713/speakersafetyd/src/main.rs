@@ -350,6 +350,14 @@ fn main() {
 
             if read != globals.period {
                 warn!("Expected {} samples, got {}", globals.period, read);
+                if j713 {
+                    // A short read means capture stopped mid-period (an xrun); the next call
+                    // would report EPIPE. Never model or renew from a partial period (#132).
+                    j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, lease.as_mut().unwrap(),
+                                 &mut recovery, &sigquit, "short capture read");
+                    last_update = Instant::now();
+                    continue;
+                }
             }
 
             if sigquit.load(Ordering::Relaxed) {
@@ -366,7 +374,17 @@ fn main() {
             }
 
             if let Some(l) = lease.as_mut() {
-                let available = pcm.as_ref().unwrap().avail().expect("J713 capture availability");
+                let available = match pcm.as_ref().unwrap().avail() {
+                    Ok(a) => a,
+                    Err(e) if e.errno() == libc::EPIPE => {
+                        // Capture stopped right after a full read (#132).
+                        j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, l,
+                                     &mut recovery, &sigquit, "capture stopped");
+                        last_update = Instant::now();
+                        continue;
+                    }
+                    Err(e) => panic!("J713 capture availability: {}", e),
+                };
                 match l.period(&ctl, epoch.unwrap(), read, available, cur_sample_rate, buf_read) {
                     j713::Period::Fresh => {}
                     j713::Period::Skip => {
@@ -456,7 +474,16 @@ fn main() {
             }
 
             if let Some(l) = lease.as_mut() {
-                l.renew(&ctl, pcm.as_ref().unwrap().avail().expect("J713 renewal availability"));
+                match pcm.as_ref().unwrap().avail() {
+                    Ok(available) => l.renew(&ctl, available),
+                    Err(e) if e.errno() == libc::EPIPE => {
+                        // Capture stopped while this period was modelled: renew nothing (#132).
+                        j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, l,
+                                     &mut recovery, &sigquit, "capture stopped");
+                        last_update = Instant::now();
+                    }
+                    Err(e) => panic!("J713 renewal availability: {}", e),
+                }
             } else {
                 unlock_elem.write_int(&ctl, UNLOCK_MAGIC);
             }

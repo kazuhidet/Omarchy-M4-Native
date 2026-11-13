@@ -157,7 +157,9 @@ build for J713 owners and is not in any release. A reboot is still the only
 supported recovery on released images.
 
 What the daemon does on a period that is too late (read 50 ms or more) or too
-deep (more than 512 frames queued):
+deep (more than 512 frames queued), or when capture stops (an overrun reported
+by the read, a short read, or `snd_pcm_avail` reporting EPIPE after a read or
+before the renewal):
 1. It releases `Speaker Volume Unlock`, so the kernel forces the group LOW at
    once instead of waiting for the lease to run out.
 2. It keeps the speakers LOW for 5 s. The thermal model keeps its state and is
@@ -182,3 +184,9 @@ On the kernel side, `j713-mca.h` changes in two ways:
 The WirePlumber readiness gate still checks the generation recorded at boot.
 After a re-arm, a new WirePlumber start (for example a new login) is refused
 until the next reboot. Audio already playing in the session is unaffected.
+On one J715 boot, capture stopped 57 ms after the user's PipeWire started at
+login (`Expected 1024 samples, got 128`, then `snd_pcm_avail` EPIPE), with no
+load; it had not happened in the six boots before. This build re-arms from it,
+but if WirePlumber starts during or after that re-arm, the readiness gate
+refuses it as above, so the speakers stay unavailable in that session until a
+reboot.
