@@ -148,3 +148,51 @@ A rollback also sets a hold there, so the fix is not applied again until
   (`phase=3`), no faults and no gain limiting needed. A sustained run long
   enough to make the thermal model limit gain has not been recorded. The
   maintainer approved delivery through the package channel.
+
+## In-session re-arm (#132, under test)
+
+Branch `audio/j713-stale-recovery-132` lets protection recover without a reboot
+from a late capture period, or a capture overrun, during a session. It is a test
+build for J713 owners and is not in any release. A reboot is still the only
+supported recovery on released images.
+
+What the daemon does on a period that is too late (read 50 ms or more) or too
+deep (more than 512 frames queued), or when capture stops (an overrun reported
+by the read, a short read, or `snd_pcm_avail` reporting EPIPE after a read or
+before the renewal):
+1. It releases `Speaker Volume Unlock`, so the kernel forces the group LOW at
+   once instead of waiting for the lease to run out.
+2. It keeps the speakers LOW for 5 s. The thermal model keeps its state and is
+   not advanced while LOW, so it can only overestimate the coil temperature.
+3. It prepares capture once while it does not own protection: the kernel
+   finishes the cancelled generation's cleanup, turns the clocks off and stops
+   the group, and refuses the prepare with EPERM because there is no owner.
+   Stopping the group marks the owner as cancelled, so this has to come before
+   the claim (a first version claimed first, and the prepare after the claim
+   then failed with EPERM on a J715).
+4. It claims ownership again and prepares capture. The kernel starts a fresh
+   generation. The daemon admits it and checks the amp senses again from
+   scratch, as it does at startup.
+5. It allows at most 3 re-arms in any 30 minutes. A fourth panics with
+   `J713 stale capture backlog/read: recovery limit reached`.
+
+A railed feedback sample, thermal faults and every other check still panic and
+stay latched.
+
+On the kernel side, `j713-mca.h` changes in two ways:
+- **Re-arm on prepare.** A prepare that finds the generation cancelled while
+  the transport is still configured first returns it to LOW, as the last close
+  does. It finishes both directions' cleanup while the clocks run, turns the
+  clocks off and stops the group.
+- **No latching for a cutoff.** Losing ownership at trigger, or sensing refusing
+  a cancelled generation, no longer sets `failed`. Any other refusal still does.
+
+The WirePlumber readiness gate still checks the generation recorded at boot.
+After a re-arm, a new WirePlumber start (for example a new login) is refused
+until the next reboot. Audio already playing in the session is unaffected.
+On one J715 boot, capture stopped 57 ms after the user's PipeWire started at
+login (`Expected 1024 samples, got 128`, then `snd_pcm_avail` EPIPE), with no
+load; it had not happened in the six boots before. This build re-arms from it,
+but if WirePlumber starts during or after that re-arm, the readiness gate
+refuses it as above, so the speakers stay unavailable in that session until a
+reboot.
