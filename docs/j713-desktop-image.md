@@ -99,12 +99,15 @@ manifest until the replacement has completed native qualification.
    Do not mark provisioning complete in the image itself.
 
 The M4 block at the end of `~/.config/hypr/hyprland.lua` sets a fallback monitor
-scale, software cursor, scrolling and diagnostic logging after the personal
-modules. It also registers the `hyprland.start` hook that finalizes the UWSM
+scale (`scale = 2`), software cursor, scrolling and diagnostic logging after the
+personal modules. It also registers the `hyprland.start` hook that finalizes the UWSM
 environment and starts the session services. Change these M4 settings in that
-final block; the scalar settings override earlier assignments. A named monitor
-rule can still take precedence over the fallback monitor rule. Other packaged
-and personal settings retain their normal loading order.
+final block; the scalar settings override earlier assignments. Because this block
+executes after `monitors.lua`, dynamic scale changes made via the status bar scale
+widget (`omarchy-hyprland-monitor-scaling`) or `monitors.lua` are overridden upon
+Hyprland configuration reload unless updated in this final block or matched by an
+explicit named monitor rule ([issue #160](https://github.com/kazuhidet/Omarchy-M4-Native/issues/160)).
+Other packaged and personal settings retain their normal loading order.
 
 ### Lid close and the lock screen
 
