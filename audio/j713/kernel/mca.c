@@ -1181,8 +1181,12 @@ static snd_pcm_uframes_t mca_pointer(struct snd_soc_component *component,
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 
+	struct mca_data *host = snd_soc_component_get_drvdata(component);
+
 	if (rtd->dai_link->no_pcm)
 		return -ENOTSUPP;
+	if (host->j713)
+		return j713_pcm_pointer(host->j713, substream);
 
 	return snd_dmaengine_pcm_pointer(substream);
 }

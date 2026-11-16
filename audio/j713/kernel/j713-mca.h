@@ -253,6 +253,87 @@ out:
  mutex_unlock(&t->lock);
  return ret;
 }
+/*
+ * #132: period completions. The generic nonatomic dmaengine PCM defers each one with
+ * schedule_work() to a CFS kworker on the CPU that took the ADMAC interrupt, which on
+ * t8132 is CPU 0. A real-time task there (rtkit raises the compositor at login), or a
+ * long non-preemptible section (writeback), keeps that kworker off the CPU for longer
+ * than the protection lease, and the daemon is never woken. The J713 streams submit
+ * their own cyclic descriptor instead and complete periods on a SCHED_FIFO worker that
+ * never runs on CPU 0. Open, stop, synchronize and close stay with the dmaengine PCM.
+ */
+static void j713_dma_work(struct kthread_work *work)
+{
+ struct j713_dma *dma=container_of(work,struct j713_dma,work);
+ snd_pcm_period_elapsed(dma->s);
+}
+static void j713_dma_complete(void *arg)
+{
+ struct j713_dma *dma=arg;
+ kthread_queue_work(dma->t->complete,&dma->work);
+}
+static int j713_dma_start(struct j713_transport *t, struct snd_pcm_substream *s)
+{
+ struct dma_chan *chan=snd_dmaengine_pcm_get_chan(s);
+ struct j713_dma *dma=&t->dma[s->stream];
+ struct dma_async_tx_descriptor *desc;
+ unsigned long flags=DMA_CTRL_ACK;
+ dma_cookie_t cookie;
+ if (!s->runtime->no_period_wakeup) flags|=DMA_PREP_INTERRUPT;
+ desc=dmaengine_prep_dma_cyclic(chan,s->runtime->dma_addr,snd_pcm_lib_buffer_bytes(s),
+  snd_pcm_lib_period_bytes(s),snd_pcm_substream_to_dma_direction(s),flags);
+ if (!desc) return -ENOMEM;
+ dma->s=s;
+ desc->callback=j713_dma_complete;
+ desc->callback_param=dma;
+ cookie=dmaengine_submit(desc);
+ if (dma_submit_error(cookie)) return cookie;
+ WRITE_ONCE(dma->cookie,cookie);
+ dma_async_issue_pending(chan);
+ return 0;
+}
+static snd_pcm_uframes_t j713_pcm_pointer(struct j713_transport *t, struct snd_pcm_substream *s)
+{
+ struct snd_pcm_runtime *runtime=s->runtime;
+ struct dma_tx_state state;
+ enum dma_status status;
+ unsigned int buf=snd_pcm_lib_buffer_bytes(s), pos=0;
+ status=dmaengine_tx_status(snd_dmaengine_pcm_get_chan(s),READ_ONCE(t->dma[s->stream].cookie),&state);
+ if (status==DMA_IN_PROGRESS || status==DMA_PAUSED) {
+  if (state.residue>0 && state.residue<=buf) pos=buf-state.residue;
+  runtime->delay=bytes_to_frames(runtime,state.in_flight_bytes);
+ }
+ return bytes_to_frames(runtime,pos);
+}
+static void j713_complete_destroy(void *data)
+{
+ struct j713_transport *t=data;
+ kthread_destroy_worker(t->complete);
+ t->complete=NULL;
+}
+static int j713_complete_init(struct j713_transport *t)
+{
+ struct kthread_worker *w;
+ cpumask_var_t mask;
+ unsigned int i;
+ int ret;
+ for (i=0;i<2;i++) { t->dma[i].t=t; kthread_init_work(&t->dma[i].work,j713_dma_work); }
+ w=kthread_create_worker(0,"j713-dma");
+ if (IS_ERR(w)) return PTR_ERR(w);
+ /* Above the rtkit range (at most 20 by default) and the protection daemon. */
+ sched_set_fifo(w->task);
+ if (!alloc_cpumask_var(&mask,GFP_KERNEL)) { kthread_destroy_worker(w); return -ENOMEM; }
+ cpumask_copy(mask,cpu_possible_mask);
+ cpumask_clear_cpu(0,mask);
+ /* Before the first wake-up: a kthread applies its preferred CPUs when it starts and
+  * again on CPU hotplug, so a later set_cpus_allowed_ptr() would be undone. */
+ ret=cpumask_empty(mask) ? 0 : kthread_affine_preferred(w->task,mask);
+ free_cpumask_var(mask);
+ if (ret) { kthread_destroy_worker(w); return ret; }
+ wake_up_process(w->task);
+ t->complete=w;
+ return devm_add_action_or_reset(t->mca->dev,j713_complete_destroy,t);
+}
 static int j713_pcm_open(struct j713_transport *t, struct snd_pcm_substream *s)
 {
  struct mca_cluster *cl=&t->mca->clusters[0];
@@ -263,7 +344,7 @@ static int j713_pcm_open(struct j713_transport *t, struct snd_pcm_substream *s)
  if (ret) return ret;
  mutex_lock(&t->lock);
  ret=t->stream[s->stream] ? -EBUSY : snd_dmaengine_pcm_open(s,cl->dma_chans[s->stream]);
- if (!ret) t->stream[s->stream]=s;
+ if (!ret) { t->stream[s->stream]=s; WRITE_ONCE(t->dma[s->stream].cookie,0); }
  mutex_unlock(&t->lock);
  return ret;
 }
@@ -323,7 +404,7 @@ static int j713_pcm_trigger(struct j713_transport *t, struct snd_pcm_substream *
   if (!(t->requested & BIT(i)) || (t->dma_running & BIT(i))) continue;
   if (!t->stream[i] || !(t->params & BIT(i))) {ret=-EPERM;goto fail;}
   if (i) {ret=j713_admac_rx_ready(t->mca->clusters[0].dma_chans[i]);if(ret)goto fail;}
-  ret=snd_dmaengine_pcm_trigger(t->stream[i],SNDRV_PCM_TRIGGER_START);
+  ret=j713_dma_start(t,t->stream[i]);
   if (ret) goto fail;
   t->dma_running |= BIT(i);
   m4_note_start(&t->cleanup[i]);
@@ -500,6 +581,8 @@ static int j713_pcm_close(struct j713_transport *t,struct snd_pcm_substream *s)
  /* All asynchronous DMA work is joined before the runtime is released. */
  j713_stop_locked(t,s);
  snd_dmaengine_pcm_sync_stop(s);
+ /* No callback runs after the synchronize; finish a completion already queued. */
+ kthread_flush_work(&t->dma[s->stream].work);
  ret=snd_dmaengine_pcm_close(s);
  t->stream[s->stream]=NULL;t->params&=~BIT(s->stream);t->prepared&=~BIT(s->stream);
  mutex_unlock(&t->lock);
@@ -530,6 +613,8 @@ static int j713_transport_init(struct mca_data *mca)
  t=devm_kzalloc(mca->dev,sizeof(*t),GFP_KERNEL);if(!t)return -ENOMEM;
  t->mca=mca;mutex_init(&t->lock);mutex_init(&t->frame_lock);INIT_DELAYED_WORK(&t->cancelled_work,j713_cancelled_work);
  t->audio=devm_j713_audio_get(mca->dev);if(IS_ERR(t->audio))return PTR_ERR(t->audio);
+ ret=j713_complete_init(t);
+ if(ret)return ret;
  mca->j713=t;
  ret=devm_j713_transport_join(t->audio,mca->dev,&j713_transport_ops,t);
  if(ret)return ret;
