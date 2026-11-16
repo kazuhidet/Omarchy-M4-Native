@@ -1,17 +1,21 @@
 # Maintainer: KB2UKA
 # Built and signed by .github/workflows/packages.yml; see docs/package-channel.md.
-# m4-speaker-module.py, MIT.txt and GPL-2.0-only.txt are staged from tools/ and LICENSES/ by
-# tools/build-m4-packages.py. The module source is audio/j713/kernel/ in the repository.
+# m4-speaker-module.py, m4-wq-cpumask.sh, MIT.txt and GPL-2.0-only.txt are staged from tools/
+# and LICENSES/ by tools/build-m4-packages.py. The module source is audio/j713/kernel/ in the
+# repository. 1-6 adds m4-wq-cpumask (#132): unbound workqueues, and so writeback, stay off
+# CPU 0, where the speaker protection's period completion runs.
 pkgname=omarchy-m4-speaker
 pkgver=1
-pkgrel=5
-pkgdesc='Applies the J713 speaker protection and MCA module updates at the next boot'
+pkgrel=6
+pkgdesc='Applies the J713 speaker protection and MCA module updates, and keeps writeback off CPU 0, at the next boot'
 arch=('aarch64')
 url='https://github.com/kazuhidet/Omarchy-M4-Native'
 license=('GPL-2.0-only' 'MIT')
 depends=('python')
+install=omarchy-m4-speaker.install
 options=('!strip' '!debug')
 source=('m4-speaker-module.py' '20-m4-speaker-module.conf' '25-m4-mca-module.conf' 'MIT.txt' 'GPL-2.0-only.txt'
+        'm4-wq-cpumask.sh' 'm4-wq-cpumask.service'
         "snd-soc-j713-group.ko::${url}/releases/download/package-inputs/snd-soc-j713-group-aaad802e.ko"
         "snd-soc-apple-mca.ko::${url}/releases/download/package-inputs/snd-soc-apple-mca-fb941df4.ko")
 sha256sums=('2f3b117da209073c0f7aed1b2668f4f490f0599d1b89015b936a693d4f3718b1'
@@ -19,6 +23,8 @@ sha256sums=('2f3b117da209073c0f7aed1b2668f4f490f0599d1b89015b936a693d4f3718b1'
             '1e14c4cbcb80953b3bc88144f7d7a269da7f7b65b6f1eafb3bc6e0191394fcb5'
             'b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5'
             'aaf135472f81c5b4a0dca9367e5bb5e9750032b5bebe5442b36e4c0a47430df3'
+            'b7e038f6aba5b7f6c54a7ba338b6708177e873041c42df5e11e6d5626525cf86'
+            '7162606357e5a8df0d1eb9b0f8f07c203cc357e342098dc5d7f7f8775a3ca5d3'
             'aaad802eb136ff6cb915feaa123001b3eb848bc2f038d0a5b71c8e2ff35d2581'
             'fb941df4d55c4f2093b4595e0392aaf97ffe3a250228518b18a4f70568bf7454')
 
@@ -30,5 +36,7 @@ package() {
     "$pkgdir/usr/lib/systemd/system/m4-j713-audio-register.service.d/20-m4-speaker-module.conf"
   install -Dm644 25-m4-mca-module.conf \
     "$pkgdir/usr/lib/systemd/system/m4-j713-audio-register.service.d/25-m4-mca-module.conf"
+  install -Dm755 m4-wq-cpumask.sh "$pkgdir/usr/lib/omarchy-m4/m4-wq-cpumask"
+  install -Dm644 m4-wq-cpumask.service "$pkgdir/usr/lib/systemd/system/m4-wq-cpumask.service"
   install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" MIT.txt GPL-2.0-only.txt
 }

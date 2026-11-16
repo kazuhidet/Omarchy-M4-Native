@@ -263,6 +263,9 @@ class PolicyTests(unittest.TestCase):
             0o644, file_sha('packaging/omarchy-m4/omarchy-m4-speaker/20-m4-speaker-module.conf'))
         files[CHECK.MCA_DROP_IN] = (
             0o644, file_sha('packaging/omarchy-m4/omarchy-m4-speaker/25-m4-mca-module.conf'))
+        files[CHECK.WQ_CPUMASK_TOOL] = (0o755, file_sha('tools/m4-wq-cpumask.sh'))
+        files[CHECK.WQ_CPUMASK_UNIT] = (
+            0o644, file_sha('packaging/omarchy-m4/omarchy-m4-speaker/m4-wq-cpumask.service'))
         return files
 
     def speaker_package(self, files):
@@ -281,7 +284,11 @@ class PolicyTests(unittest.TestCase):
         staged = next(iter(CHANNEL['speaker_module']))
         for files, message in (({**good, staged: (0o644, '0' * 64)}, 'differs from the pin'),
                                ({**good, 'usr/bin/m4-speaker-module': (0o755, '0' * 64)}, 'tool differs'),
-                               ({**good, CHECK.SPEAKER_DROP_IN: (0o644, '0' * 64)}, 'drop-in differs')):
+                               ({**good, CHECK.SPEAKER_DROP_IN: (0o644, '0' * 64)}, 'drop-in differs'),
+                               ({**good, CHECK.WQ_CPUMASK_TOOL: (0o755, '0' * 64)}, 'CPU mask tool differs'),
+                               ({**good, CHECK.WQ_CPUMASK_TOOL: (0o644, file_sha('tools/m4-wq-cpumask.sh'))},
+                                'CPU mask tool differs'),
+                               ({**good, CHECK.WQ_CPUMASK_UNIT: (0o644, '0' * 64)}, 'CPU mask unit differs')):
             with self.subTest(message):
                 with self.assertRaisesRegex(ValueError, message):
                     CHECK.check_package(CHANNEL, *self.speaker_package(files))
