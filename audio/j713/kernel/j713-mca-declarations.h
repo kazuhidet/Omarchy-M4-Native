@@ -1,6 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #ifndef J713_MCA_DECLARATIONS_H
 #define J713_MCA_DECLARATIONS_H
+#include <linux/kthread.h>
+struct j713_transport;
+/* #132: one cyclic DMA per direction, its period completions run on the transport's worker. */
+struct j713_dma {
+ struct j713_transport *t;
+ struct snd_pcm_substream *s;
+ struct kthread_work work;
+ dma_cookie_t cookie;
+};
 struct j713_transport {
  struct mca_data *mca;
  struct j713_audio *audio;
@@ -13,6 +22,8 @@ struct j713_transport {
  u32 port_saved[3];
  bool port_owned;
  struct m4_cleanup cleanup[2];
+ struct kthread_worker *complete;
+ struct j713_dma dma[2];
 };
 static int j713_fe_start(struct j713_transport *, struct snd_pcm_substream *);
 static int j713_fe_params(struct j713_transport *, struct snd_pcm_substream *, struct snd_pcm_hw_params *);
@@ -27,4 +38,5 @@ static int j713_pcm_close(struct j713_transport *, struct snd_pcm_substream *);
 static int j713_dma_params(struct j713_transport *, struct snd_pcm_substream *, struct snd_pcm_hw_params *);
 static int j713_pcm_trigger(struct j713_transport *, struct snd_pcm_substream *, int);
 static void j713_pcm_release(struct j713_transport *);
+static snd_pcm_uframes_t j713_pcm_pointer(struct j713_transport *, struct snd_pcm_substream *);
 #endif
