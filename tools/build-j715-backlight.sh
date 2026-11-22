@@ -6,8 +6,8 @@ if [ "$#" != 3 ]; then
     echo "usage: $0 MODULE_STAGING KERNEL_BUILD QUALIFIED_DISPLAY_PROFILE" >&2
     exit 2
 fi
-: "${TMPDIR:?}" "${NODE_COMPILE_CACHE:?}" "${BUN_RUNTIME_TRANSPILER_CACHE_PATH:?}"
-export TMPDIR NODE_COMPILE_CACHE BUN_RUNTIME_TRANSPILER_CACHE_PATH PYTHONDONTWRITEBYTECODE=1 GIT_MASTER=1
+: "${TMPDIR:?}"
+export TMPDIR PYTHONDONTWRITEBYTECODE=1
 here=$(dirname "$(realpath "$0")")
 module=$(realpath -m "$1") kernel=$(realpath "$2") profile=$(realpath "$3")
 python3 -B "$here/j715_display_profile.py" "$profile"

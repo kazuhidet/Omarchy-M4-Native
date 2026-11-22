@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -215,8 +216,8 @@ def receipt(profile_path: Path, output: Path, kernel: Path | None) -> None:
              "tools/build-j715-backlight.sh", "tools/m4-j715-backlight.py", "tools/m4-backlight.py",
              "display/j715/profile.schema.json", "display/j715/backlight/Kbuild",
              "display/j715/backlight/client.c", "display/j715/backlight/profile.h",
-             "display/j715/build-backlight-loader.sh", "display/j715/m1n1-sep-handoff.patch",
-             "display/j715/m1n1-preserve-sep-rng.patch", "display/j715/m1n1-j715-handoff.patch"]
+             "display/j715/build-backlight-loader.sh", "patches-m1n1/sep-alias-lifetime.patch",
+             "patches-m1n1/t8132-skip-sep-rom-random.patch", "display/j715/m1n1-j715-handoff.patch"]
     binaries = sorted(output.glob("*.ko" if kernel else "*.bin"))
     require(len(binaries) == (1 if kernel else 3), "Incomplete output closure")
     record = {"profile_sha256": profile.digest, "builder_image": image, "hardware_success": False,
@@ -233,9 +234,8 @@ def receipt(profile_path: Path, output: Path, kernel: Path | None) -> None:
         record["module_sha256"] = sha(binaries[0].read_bytes())
         record["flags"] = ["ARCH=arm64", "LLVM=/usr/lib/llvm-21/bin/", "LOCALVERSION=", "KCFLAGS=-Werror"]
         environment = os.environ.copy()
-        for key in ("TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH"):
-            require(bool(environment.get(key)), "Missing subprocess environment: " + key)
-        environment.update(PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+        environment.setdefault("TMPDIR", tempfile.gettempdir())
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
         record["abi_and_build_notes"] = subprocess.check_output(
             ["/usr/lib/llvm-21/bin/llvm-readelf", "-h", "-n", str(binaries[0])],
             env=environment, text=True)

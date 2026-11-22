@@ -8,6 +8,7 @@ import re
 import stat
 import subprocess
 import tarfile
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Final, TypeAlias
@@ -157,11 +158,10 @@ def check_links(files: tuple[SourceFile, ...]) -> None:
 
 
 def git(root: Path, args: list[str]) -> str:
-    """Run read-only Git with explicit scratch/cache inheritance and no replacements."""
+    """Run read-only Git with explicit scratch defaults and no replacements."""
     environment = os.environ.copy()
-    for key in ("TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH"):
-        require(bool(environment.get(key)), "Missing subprocess environment: " + key)
-    environment.update(PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1",
+    environment.setdefault("TMPDIR", tempfile.gettempdir())
+    environment.update(PYTHONDONTWRITEBYTECODE="1",
                        GIT_NO_REPLACE_OBJECTS="1", GIT_OPTIONAL_LOCKS="0")
     return subprocess.check_output(
         ["git", "-C", str(root), *args], env=environment, stderr=subprocess.PIPE,

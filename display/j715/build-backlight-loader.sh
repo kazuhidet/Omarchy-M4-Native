@@ -7,8 +7,8 @@ if [ "$#" != 3 ]; then
     echo "usage: $0 COMPANION_SOURCE NEW_OUTPUT QUALIFIED_DISPLAY_PROFILE" >&2
     exit 2
 fi
-: "${TMPDIR:?}" "${NODE_COMPILE_CACHE:?}" "${BUN_RUNTIME_TRANSPILER_CACHE_PATH:?}"
-export TMPDIR NODE_COMPILE_CACHE BUN_RUNTIME_TRANSPILER_CACHE_PATH PYTHONDONTWRITEBYTECODE=1 GIT_MASTER=1
+: "${TMPDIR:?}"
+export TMPDIR PYTHONDONTWRITEBYTECODE=1
 here=$(dirname "$(realpath "$0")")
 tools=$here/../../tools
 src=$(realpath "$1") out=$(realpath -m "$2") profile=$(realpath "$3")
@@ -43,16 +43,16 @@ build() {
     if [ "$kind" != stock ]; then
         cp "$scratch/verified/display/j713/m1n1-base/src/"{kboot.c,dart.c,dart.h} "$tree/src/"
         cp "$scratch/verified/j715-profile-generated.h" "$tree/src/"
-        (cd "$tree" && GIT_MASTER=1 git apply --check "$here/m1n1-j715-handoff.patch")
-        (cd "$tree" && GIT_MASTER=1 git apply "$here/m1n1-j715-handoff.patch")
+        (cd "$tree" && git apply --check "$here/m1n1-j715-handoff.patch")
+        (cd "$tree" && git apply "$here/m1n1-j715-handoff.patch")
     fi
     # Apply after the donor source overlay: that overlay predates these fixes.
-    for sep_patch in m1n1-sep-handoff.patch m1n1-preserve-sep-rng.patch; do
-        (cd "$tree" && GIT_MASTER=1 git apply --check "$here/$sep_patch")
-        (cd "$tree" && GIT_MASTER=1 git apply "$here/$sep_patch")
+    for sep_patch in sep-alias-lifetime.patch t8132-skip-sep-rom-random.patch; do
+        (cd "$tree" && git apply --check "$here/../../patches-m1n1/$sep_patch")
+        (cd "$tree" && git apply "$here/../../patches-m1n1/$sep_patch")
     done
     if [ "$kind" = j715-shown ]; then
-        (cd "$tree" && GIT_MASTER=1 git apply "$scratch/verified/display/j713/m1n1-show-notch.patch")
+        (cd "$tree" && git apply "$scratch/verified/display/j713/m1n1-show-notch.patch")
     fi
     (
         cd "$tree"

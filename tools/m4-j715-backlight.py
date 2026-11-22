@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 KB2UKA
+# Copyright (c) 2026 KB2UKA, Audrey Tang
 """Evidence-gated J715 owner; recovery never unbinds or unloads a live display."""
 import argparse
 import importlib.util
@@ -89,9 +89,7 @@ def start(root: Path, run=subprocess.run):
         write_state(state, "attempt", "starting native J715 backlight\n")
         environment = os.environ.copy()
         environment.setdefault("TMPDIR", "/tmp")
-        for key in ("TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH"):
-            environment.setdefault(key, environment["TMPDIR"])
-        environment.update(PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
         run(["insmod", str(module)], check=True, env=environment)
         (root / DEBUG / "start").write_text("1\n")
         (root / DEBUG / "brightness_nits").write_text(f"{profile.initial_nits}\n")
@@ -111,9 +109,7 @@ def brightness(step: str, no_osd=False, run=subprocess.run, root=Path("/")):
     require(is_j715(root), "This is not a J715 MacBook Air")
     environment = os.environ.copy()
     environment.setdefault("TMPDIR", "/tmp")
-    for key in ("TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH"):
-        environment.setdefault(key, environment["TMPDIR"])
-    environment.update(PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
     result = run(["hyprctl", "monitors", "-j"], check=True, capture_output=True, text=True, env=environment)
     focused = [m for m in json.loads(result.stdout) if m.get("focused")]
     require(len(focused) == 1, "No unique focused monitor")

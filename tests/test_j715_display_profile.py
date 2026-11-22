@@ -27,10 +27,8 @@ def load(name: str, relative: str):
 
 def environment():
     result = os.environ.copy()
-    for key in ("TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH"):
-        if not result.get(key):
-            raise RuntimeError("Test requires isolated " + key)
-    result.update(PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+    result.setdefault("TMPDIR", tempfile.gettempdir())
+    result["PYTHONDONTWRITEBYTECODE"] = "1"
     return result
 
 

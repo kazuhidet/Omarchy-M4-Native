@@ -37,11 +37,9 @@ a successful handoff marker. The loader patch validates the current boot's
 ADT mappings, page tables, reserved spans and framebuffer before publishing
 the memory regions and handoff marker Linux consumes.
 
-The loader recipe preserves both SEP fixes: resolving the SEP alias after
-FDT mutations, and avoiding the ROM random request against running sepOS on
-T8132. These overlap the SEP work in PR #168. Keep the known-good fixes when
-rebasing or deduplicating that PR; the display donor overlay predates them,
-so the recipe applies them **after** the overlay.
+The loader recipe applies the two shared T8132 SEP fixes from `patches-m1n1/`
+(`sep-alias-lifetime.patch` and `t8132-skip-sep-rom-random.patch`) **after** the
+display donor overlay, because that overlay predates them.
 
 ## Build inputs and provenance
 
@@ -77,19 +75,18 @@ python3 -B tools/build-j715-backlight-dt.py \
 bash display/j715/build-backlight-loader.sh COMPANION_SOURCE LOADER_OUTPUT QUALIFIED_PROFILE
 ```
 
-These are build interfaces, not owner installation instructions. Supply
-task-local `TMPDIR`, `NODE_COMPILE_CACHE` and
-`BUN_RUNTIME_TRANSPILER_CACHE_PATH`. The builders do not install or replace
-the live boot image.
+These are build interfaces, not owner installation instructions. Supply a
+task-local `TMPDIR`. The builders do not install or replace the live boot image.
 
-## Update-channel integration
+## Staged packaging integration
 
-The existing `omarchy-m4-backlight` package moves from `1-1` to `1-2`. It
-retains the exact J713 module, helper, metadata and service, and adds:
+The runtime wrapper, systemd unit and udev rule live under
+`packaging/j715-backlight/`. The shipped `omarchy-m4-backlight` package stays
+unchanged at `1-1` in this change so J713 owners are unaffected until published
+J715 module and profile inputs are available for a dedicated release bump:
 
-- A separate `m4-j715-backlight` command and its validator/schema dependencies.
-- `m4-j715-backlight.service`, enabled by the package hook only on J715 for the
-  next boot.
+- `m4-j715-backlight` and its validator/schema dependencies.
+- `m4-j715-backlight.service` (inactive until enabled by the later package bump).
   The unit requires J715 module, pins and profile files, and its `ExecCondition`
   requires J715 / T8132 while excluding J713. The owner then verifies the
   kernel/module/profile and current-boot handoff before activation. Its
@@ -102,9 +99,7 @@ retains the exact J713 module, helper, metadata and service, and adds:
   device's `brightness` file to group `video`, mode `0664`. It grants no
   debugfs or other panel access.
 
-The channel allowlist and package checker verify the added exact paths,
-modes and source bytes. No new opt-in package or second owner install path
-is added. `m4-j715-backlight --disable` holds future startup without unloading
+`m4-j715-backlight --disable` holds future startup without unloading
 the live display client; `--enable` clears the hold/failure marker for the
 next boot after the owner has investigated the failure.
 

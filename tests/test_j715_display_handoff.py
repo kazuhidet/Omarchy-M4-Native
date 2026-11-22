@@ -179,9 +179,9 @@ class Handoff(unittest.TestCase):
                                 cwd=cls.scratch, env=environment(), capture_output=True, text=True, check=False)
         if result.returncode:
             raise AssertionError(result.stderr)
-        for name in ("m1n1-sep-handoff.patch", "m1n1-preserve-sep-rng.patch"):
+        for name in ("sep-alias-lifetime.patch", "t8132-skip-sep-rom-random.patch"):
             result = subprocess.run(
-                ["git", "apply", str(ROOT / "display/j715" / name)],
+                ["git", "apply", str(ROOT / "patches-m1n1" / name)],
                 cwd=cls.scratch, env=environment(), capture_output=True, text=True, check=False)
             if result.returncode:
                 raise AssertionError(result.stderr)
