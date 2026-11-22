@@ -337,10 +337,12 @@ def check_package(channel, package, info, files, root, joins=None):
             'spirv-tools', 'lm_sensors', 'libglvnd', 'libx11', 'libxcb', 'libxext', 'libxrandr',
             'libxxf86vm', 'libxshmfence', 'wayland', 'systemd-libs',
         }
+        xr30_install = sha((ROOT / 'packaging/omarchy-m4/omarchy-m4-xr30/omarchy-m4-xr30.install').read_bytes())
         require(all(re.split('[<>=]', item, maxsplit=1)[0] in allowed_dependencies for item in dependencies) and
-                not info.get('conflict') and not info.get('replaces') and
-                info.get('.INSTALL', [None]) == [None],
+                not info.get('conflict') and not info.get('replaces'),
                 'Graphics package must not pull in, replace or script changes to board packages')
+        require(info.get('.INSTALL') == [xr30_install],
+                'Graphics package install script differs from tracked source')
     elif name == 'omarchy-m4-boot':
         require(files.get('usr/lib/omarchy-m4/j713.dtb', (0, ''))[1] == channel['devicetree']['sha256'],
                 'Boot package does not carry the pinned devicetree')

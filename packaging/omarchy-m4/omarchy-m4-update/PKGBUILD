@@ -5,7 +5,7 @@ pkgver=1
 pkgrel=1
 pkgdesc='Shared signed M4 channel enrollment and update command'
 arch=('aarch64')
-url='https://github.com/Kb2uka/Omarchy-M4-Native'
+url='https://github.com/kazuhidet/Omarchy-M4-Native'
 license=('MIT')
 depends=('python' 'pacman')
 # Boot 1-20 drops these files and depends on this package. Pacman transfers
@@ -13,7 +13,7 @@ depends=('python' 'pacman')
 # or use --overwrite to bypass its ownership on an old installation.
 options=('!strip' '!debug')
 source=('m4-channel-setup.py' 'omarchy-m4-update' 'MIT.txt')
-sha256sums=('2dabccc3d375d5e4d7d34fddf0ce34f6969e11bd8d1a16044f508e437510ae2e'
+sha256sums=('aee02d967f8d68a0cd6bf9fc964dd681fbeb09abb8cc08e1f17172e5fcb2421a'
             '77b1756448d9191b3167f63622a891dceb55bc4891f436391cc483690d72c6a1'
             'b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5')
 

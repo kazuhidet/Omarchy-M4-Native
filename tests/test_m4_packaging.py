@@ -380,12 +380,17 @@ class PolicyTests(unittest.TestCase):
                 (0o644, file_sha('packaging/omarchy-m4/omarchy-m4-xr30/90-m4-xr30.conf')),
         }
         info = {'pkgname': ['omarchy-m4-xr30'], 'pkgver': ['1-1'], 'arch': ['aarch64'],
-                'depend': ['python', 'omarchy-m4-update>=1-1']}
+                'depend': ['python', 'omarchy-m4-update>=1-1'],
+                '.INSTALL': [file_sha('packaging/omarchy-m4/omarchy-m4-xr30/omarchy-m4-xr30.install')]}
         CHECK.check_package(CHANNEL, *self.package('omarchy-m4-xr30', files, info))
         for dependency in ('omarchy-m4-boot', 'linux-m4-omarchy', 'omarchy-m4-gpu', 'omarchy-m4-speaker'):
             with self.subTest(dependency=dependency), self.assertRaisesRegex(ValueError, 'board packages'):
                 CHECK.check_package(CHANNEL, *self.package(
                     'omarchy-m4-xr30', files, {**info, 'depend': [*info['depend'], dependency]}))
+        for script in ([None], ['0' * 64]):
+            with self.subTest(script=script), self.assertRaisesRegex(ValueError, 'install script'):
+                CHECK.check_package(CHANNEL, *self.package(
+                    'omarchy-m4-xr30', files, {**info, '.INSTALL': script}))
 
     def test_graphics_package_requires_source_matched_login_files_and_modes(self):
         files = {
@@ -394,7 +399,8 @@ class PolicyTests(unittest.TestCase):
                 (0o644, file_sha('packaging/omarchy-m4/omarchy-m4-xr30/90-m4-xr30.conf')),
         }
         info = {'pkgname': ['omarchy-m4-xr30'], 'pkgver': ['1-1'], 'arch': ['aarch64'],
-                'depend': ['python', 'omarchy-m4-update>=1-1']}
+                'depend': ['python', 'omarchy-m4-update>=1-1'],
+                '.INSTALL': [file_sha('packaging/omarchy-m4/omarchy-m4-xr30/omarchy-m4-xr30.install')]}
         for path, (mode, digest) in files.items():
             for change, invalid in (
                     ('missing', {name: value for name, value in files.items() if name != path}),

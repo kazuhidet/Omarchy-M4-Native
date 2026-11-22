@@ -52,7 +52,7 @@ def check(workflows):
             need(isinstance(job, dict), label + ': invalid job')
             if not isinstance(job, dict):
                 continue
-            need(job.get('runs-on') in ('ubuntu-24.04', 'macos-15'), label + ': standard hosted runner required')
+            need(job.get('runs-on') in ('ubuntu-24.04', 'ubuntu-26.04-arm', 'macos-15'), label + ': standard hosted runner required')
             need('uses' not in job and 'container' not in job and 'services' not in job,
                  label + ': reusable jobs or containers require separate review')
             need(job.get('continue-on-error', 'false') == 'false', label + ': cannot ignore failure')
