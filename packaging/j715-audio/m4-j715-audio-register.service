@@ -12,7 +12,7 @@ RuntimeDirectoryPreserve=yes
 ExecStart=/usr/bin/python3 -B /usr/lib/omarchy-m4/j715/audio/m4-j715-audio-register.py
 TimeoutStartSec=120
 Restart=no
-Environment=PYTHONDONTWRITEBYTECODE=1 GIT_MASTER=1 TMPDIR=/tmp NODE_COMPILE_CACHE=/tmp BUN_RUNTIME_TRANSPILER_CACHE_PATH=/tmp
+Environment=PYTHONDONTWRITEBYTECODE=1 TMPDIR=/tmp
 
 [Install]
 WantedBy=multi-user.target

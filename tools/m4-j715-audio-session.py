@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 KB2UKA
+# Copyright (c) 2026 Audrey Tang
 """J715 manifest trust boundary and optional native session gate."""
 import argparse
 import hashlib
@@ -41,9 +41,7 @@ def require(condition: bool, message: str) -> None:
 
 def command_environment() -> dict[str, str]:
     return {**os.environ, "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
-            "NODE_COMPILE_CACHE": os.environ.get("NODE_COMPILE_CACHE", "/tmp"),
-            "BUN_RUNTIME_TRANSPILER_CACHE_PATH": os.environ.get("BUN_RUNTIME_TRANSPILER_CACHE_PATH", "/tmp"),
-            "PYTHONDONTWRITEBYTECODE": "1", "GIT_MASTER": "1"}
+            "PYTHONDONTWRITEBYTECODE": "1"}
 
 
 def load(filename: str):

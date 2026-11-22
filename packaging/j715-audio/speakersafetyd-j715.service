@@ -22,7 +22,7 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-Environment=PYTHONDONTWRITEBYTECODE=1 GIT_MASTER=1 TMPDIR=/tmp NODE_COMPILE_CACHE=/tmp BUN_RUNTIME_TRANSPILER_CACHE_PATH=/tmp
+Environment=PYTHONDONTWRITEBYTECODE=1 TMPDIR=/tmp
 
 [Install]
 WantedBy=multi-user.target

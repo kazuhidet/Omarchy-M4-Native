@@ -54,9 +54,8 @@ class ProfileTests(unittest.TestCase):
     def test_exact_payload_when_each_id_is_rendered_through_cli(self):
         # Given: two distinct exact helper reports and a locked, untouched donor.
         environment = os.environ.copy()
-        for key in ("TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH"):
-            self.assertTrue(environment.get(key), key)
-        environment.update(PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+        environment.setdefault("TMPDIR", tempfile.gettempdir())
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
         originals = {item.pin.path: item.data for item in self.sources}
         for speaker_id in (0, 3):
             with self.subTest(speaker_id=speaker_id):
@@ -233,9 +232,8 @@ class ProfileTests(unittest.TestCase):
     def test_cli_refused_when_arbitrary_activation_id_is_supplied(self):
         # Given: the offline CLI exposes no direct ID or activation switch.
         environment = os.environ.copy()
-        for key in ("TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH"):
-            self.assertTrue(environment.get(key), key)
-        environment.update(PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+        environment.setdefault("TMPDIR", tempfile.gettempdir())
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
         # When: an ID override attempts to bypass the report parser.
         result = subprocess.run(
             [sys.executable, "-B", str(ROOT / "tools/m4-j715-audio-profile.py"),

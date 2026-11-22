@@ -73,6 +73,13 @@ class NativeAudioBuildTests(unittest.TestCase):
             n: audio.native.sha(ROOT / n) for n in self.reviewed["integration_sources"]}
         contract.write_text(json.dumps(self.reviewed))
         self.addCleanup(mock.patch.stopall)
+        self.system_root = self.base / "host-usr"
+        for name in audio.native.SYSTEM_TOOLS:
+            tool = self.system_root / name
+            tool.parent.mkdir(parents=True, exist_ok=True)
+            tool.write_bytes(b"#!/bin/sh\nexit 0\n")
+            tool.chmod(0o755)
+        mock.patch.object(audio, "SYSTEM_ROOT", self.system_root).start()
         mock.patch.object(audio.native, "CONTRACT", contract).start()
         mock.patch.object(audio, "n2", legacy.audio).start()
         mock.patch.object(audio, "local_sources", return_value=self.fixture.fixture_files).start()
@@ -82,7 +89,6 @@ class NativeAudioBuildTests(unittest.TestCase):
     def compiler(self, command, environment):
         """Simulate only subprocess results, consuming the production command plan."""
         self.assertEqual(environment["PYTHONDONTWRITEBYTECODE"], "1")
-        self.assertEqual(environment["GIT_MASTER"], "1")
         self.assertIn(str(self.args.rust / "lib"), environment["LD_LIBRARY_PATH"])
         stdout = ""
         if command[0] == "/usr/bin/stat":

@@ -68,9 +68,7 @@ class SourceTests(unittest.TestCase):
     def test_local_cli_preserves_complete_closure_and_independent_build(self):
         # Given: real pinned checkouts and a new output.
         environment = os.environ.copy()
-        environment.update(TMPDIR=str(self.base), NODE_COMPILE_CACHE=str(self.base / "node"),
-                           BUN_RUNTIME_TRANSPILER_CACHE_PATH=str(self.base / "bun"),
-                           PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+        environment.update(TMPDIR=str(self.base), PYTHONDONTWRITEBYTECODE="1")
         # When: use the real public CLI, not a mocked verifier.
         result = subprocess.run(
             [sys.executable, "-B", str(ROOT / "tools/prepare-j715-sources.py"),

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 KB2UKA
+# Copyright (c) 2026 Audrey Tang
 """Publication races, startup transitions and the staged service/session boundary."""
 import configparser
 import io

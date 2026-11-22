@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -25,9 +26,8 @@ class DefaultPolicyTests(unittest.TestCase):
             expected, name = line.split("  ", 1)
             self.assertEqual(hashlib.sha256((fixture / name).read_bytes()).hexdigest(), expected)
         environment = os.environ.copy()
-        for key in ("TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH"):
-            self.assertTrue(environment.get(key), key)
-        environment.update(PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+        environment.setdefault("TMPDIR", tempfile.gettempdir())
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
         script = POLICY / "usr/share/wireplumber/scripts/default-nodes/j715-protected.lua"
         # When: execute actual shipped policy through real upstream hook ordering.
         result = subprocess.run(

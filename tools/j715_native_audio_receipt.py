@@ -108,10 +108,9 @@ def build_environment(paths, inherited) -> dict[str, str]:
     """Do not inherit caller compiler overrides, Cargo configuration or library paths."""
     work, sysroot = paths["work"], paths["sysroot"]
     llvm, rust = paths["llvm"], paths["rust"]
-    result = {k: inherited[k] for k in (
-        "TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH")}
+    result = {"TMPDIR": inherited.get("TMPDIR", "/tmp")}
     result.update(
-        HOME=work, LANG="C", LC_ALL="C", PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1",
+        HOME=work, LANG="C", LC_ALL="C", PYTHONDONTWRITEBYTECODE="1",
         PATH=f"{rust}/bin:{llvm}/lib/llvm-21/bin:/usr/bin:/bin",
         LD_LIBRARY_PATH=f"{rust}/lib:{llvm}/lib/aarch64-linux-gnu:{llvm}/lib/llvm-21/lib",
         CARGO_HOME=work + "/cargo", CARGO_TARGET_DIR=work + "/target",

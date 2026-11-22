@@ -17,6 +17,7 @@ import j715_native_audio_receipt as native
 from j715_sources import SourceLock, digest, local_sources, relative, require
 
 ROOT = Path(__file__).resolve().parents[1]
+SYSTEM_ROOT = Path("/usr")
 SPEC = importlib.util.spec_from_file_location("_native_n2", ROOT / "tools/prepare-j715-audio-build.py")
 n2 = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = n2
@@ -68,7 +69,7 @@ def preflight(args, spec, reviewed):
     require(not any((args.cargo / n).exists() for n in ("config", "config.toml")),
             "Unreviewed Cargo configuration")
     require(all(not p.is_symlink() for p in args.cargo.rglob("*")), "Cargo cache contains links")
-    require(all(os.access(Path("/usr") / n, os.X_OK) for n in native.SYSTEM_TOOLS),
+    require(all(os.access(SYSTEM_ROOT / n, os.X_OK) for n in native.SYSTEM_TOOLS),
             "Missing native build/inspection tool")
     for name, pin in reviewed["tool_executables"].items():
         kind, name = name.split(":")
@@ -85,7 +86,7 @@ def toolchains(args, reviewed, environment):
     records = {}
     for name in (*reviewed["tool_executables"], *("host:" + n for n in native.SYSTEM_TOOLS)):
         kind, executable = name.split(":")
-        path = (Path("/usr") if kind == "host" else getattr(args, kind)) / executable
+        path = (SYSTEM_ROOT if kind == "host" else getattr(args, kind)) / executable
         version = run([str(path), "-vV" if executable == "bin/rustc" else "--version"], environment)
         libraries = run(["/usr/bin/ldd", str(path)], environment)
         closure = {}

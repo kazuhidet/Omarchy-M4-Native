@@ -36,8 +36,8 @@
     "display/j715/backlight/client.c",
     "display/j715/backlight/profile.h",
     "display/j715/build-backlight-loader.sh",
-    "display/j715/m1n1-sep-handoff.patch",
-    "display/j715/m1n1-preserve-sep-rng.patch",
+    "patches-m1n1/sep-alias-lifetime.patch",
+    "patches-m1n1/t8132-skip-sep-rom-random.patch",
     "display/j715/m1n1-j715-handoff.patch"
   ],
   "selected_fir_paths": [

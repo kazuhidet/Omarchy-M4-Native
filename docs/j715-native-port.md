@@ -66,8 +66,7 @@ python3 -B tools/build-j715-native-audio.py \
   --output /absolute/new-native-audio-output
 ```
 
-Export `TMPDIR`, `NODE_COMPILE_CACHE`, `BUN_RUNTIME_TRANSPILER_CACHE_PATH`,
-`PYTHONDONTWRITEBYTECODE=1` and `GIT_MASTER=1`. `TMPDIR` must be tmpfs. There is no
+Export `TMPDIR` and `PYTHONDONTWRITEBYTECODE=1`. `TMPDIR` must be tmpfs. There is no
 fetch, install, kernel preparation, activation or Docker fallback operation.
 Rust's explicit library root is included in every subprocess environment.
 The CLI verifies package contents/signature, pinned executables, all six native

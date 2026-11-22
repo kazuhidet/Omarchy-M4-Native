@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -47,9 +48,8 @@ class BuildInputs:
 
 def environment() -> dict[str, str]:
     result = os.environ.copy()
-    for key in ("TMPDIR", "NODE_COMPILE_CACHE", "BUN_RUNTIME_TRANSPILER_CACHE_PATH"):
-        require(bool(result.get(key)), "Missing subprocess environment: " + key)
-    result.update(PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+    result.setdefault("TMPDIR", tempfile.gettempdir())
+    result["PYTHONDONTWRITEBYTECODE"] = "1"
     return result
 
 
@@ -166,9 +166,7 @@ def preflight(inputs: BuildInputs) -> tuple[SourceFile, ...]:
 
 
 def container(image: str, mounts: list[str], command: str) -> list[str]:
-    prefix = ("export TMPDIR=/tmp NODE_COMPILE_CACHE=/tmp/node-cache "
-              "BUN_RUNTIME_TRANSPILER_CACHE_PATH=/tmp/bun-cache "
-              "PYTHONDONTWRITEBYTECODE=1 GIT_MASTER=1; ")
+    prefix = "export TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1; "
     return ["docker", "run", "--rm", "--network", "none", "--pull", "never",
             "--entrypoint", "/bin/bash", *mounts, image, "-c", "set -euo pipefail; " + prefix + command]
 

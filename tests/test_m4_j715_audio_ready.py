@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 KB2UKA
+# Copyright (c) 2026 KB2UKA, Audrey Tang
 """Synthetic lifecycle fixtures, never hardware qualification receipts."""
 import hashlib
 import importlib.util

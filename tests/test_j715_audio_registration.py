@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 KB2UKA
+# Copyright (c) 2026 KB2UKA, Audrey Tang
 """Registration fixtures adapted from the retained J713 installer owner tests."""
 import json
 import shutil

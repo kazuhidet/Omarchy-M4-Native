@@ -3,7 +3,9 @@
 The 15-inch M4 Air (J715, Mac16,13) plays its six built-in speakers through the
 protected path after an ordinary reboot. This was observed on one owner's Air with
 speaker ID 3, kernel `7.1.9-m4-gpu-backport-20261008` (#19), WirePlumber 0.5.18 and
-the native build pinned by [the native port](j715-native-port.md). Speaker ID 0,
+the native build pinned by [the native port](j715-native-port.md). The donor
+speaker implementation, DSP graphs and protection daemon sources come from #142
+pinned at commit `7f08ee45c5754f9e267f3ed947af5695c236d268`. Speaker ID 0,
 headphones and the jack, and long sustained playback are not qualified.
 
 ## Hardware observations
@@ -88,7 +90,6 @@ cd tests
 python3 -B -m unittest discover -s . -p "test_*j715*.py"
 ```
 
-Export `TMPDIR`, `NODE_COMPILE_CACHE`, `BUN_RUNTIME_TRANSPILER_CACHE_PATH`,
-`PYTHONDONTWRITEBYTECODE=1` and `GIT_MASTER=1`. Fixture setup needs the pinned donor
+Export `TMPDIR` and `PYTHONDONTWRITEBYTECODE=1`. Fixture setup needs the pinned donor
 checkout next to this repository. These synthetic fixtures check contracts, refusals
 and rollback; they are not hardware evidence.

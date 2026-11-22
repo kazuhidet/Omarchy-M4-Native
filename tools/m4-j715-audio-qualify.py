@@ -43,7 +43,7 @@ def atomic(path: Path, data: bytes) -> None:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.chmod(name, 0o644)
+            os.fchmod(stream.fileno(), 0o644)
         os.replace(name, path)
     except BaseException:
         if os.path.lexists(name):
@@ -104,9 +104,10 @@ def locked_qualify(root: Path, report: bytes, evidence: dict) -> dict:
     try:
         for dest, data in installs:
             dest.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
-            with open(dest, "xb") as stream:
+            fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
+            with os.fdopen(fd, "wb") as stream:
                 stream.write(data)
-            os.chmod(dest, 0o644)
+                os.fchmod(stream.fileno(), 0o644)
             created.append(dest)
         for name, pin in receipt["files"].items():
             s.require(sha(s.at(root, "/" + name).read_bytes()) == pin["sha256"],

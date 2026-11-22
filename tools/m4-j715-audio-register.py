@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 KB2UKA
+# Copyright (c) 2026 KB2UKA, Audrey Tang
 """Register one exact, qualified J715 selection per boot; retain partial failure."""
 import fcntl
 import importlib.util

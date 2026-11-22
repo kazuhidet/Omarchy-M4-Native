@@ -72,9 +72,7 @@ class NativePackageTests(unittest.TestCase):
                                        output=self.output, display_build=None,
                                        display_loader=None, display_base=None)
         self.environment = {**os.environ, "TMPDIR": str(self.base),
-                            "NODE_COMPILE_CACHE": str(self.base / "node"),
-                            "BUN_RUNTIME_TRANSPILER_CACHE_PATH": str(self.base / "bun"),
-                            "PYTHONDONTWRITEBYTECODE": "1", "GIT_MASTER": "1"}
+                            "PYTHONDONTWRITEBYTECODE": "1"}
 
     def save(self):
         self.receipt_path.write_text(json.dumps(self.receipt))
@@ -251,9 +249,7 @@ class NativePackageTests(unittest.TestCase):
             backend=native.BACKEND, repeatable=True, native_contract_sha256=native.sha(native.CONTRACT),
             native_integration_sources=reviewed["integration_sources"], native_paths=paths,
             host_helpers=reviewed["host_helpers"],
-            environment=native.build_environment(paths, {
-                "TMPDIR": "/synthetic-native/tmp", "NODE_COMPILE_CACHE": "/synthetic-native/node",
-                "BUN_RUNTIME_TRANSPILER_CACHE_PATH": "/synthetic-native/bun"}),
+            environment=native.build_environment(paths, {"TMPDIR": "/synthetic-native/tmp"}),
             commands=native.plan(paths, spec), passes=[self.receipt["outputs"]] * 2,
             rust_package_sha256=reviewed["rust_package_sha256"],
             rust_signature="[GNUPG:] VALIDSIG synthetic-boundary-only",

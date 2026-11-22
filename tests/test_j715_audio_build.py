@@ -36,9 +36,7 @@ class AudioBuildTests(unittest.TestCase):
         self.base = Path(self.temp.name)
         self.output = self.base / "new-output"
         self.environment = os.environ.copy()
-        self.environment.update(TMPDIR=str(self.base), NODE_COMPILE_CACHE=str(self.base / "node"),
-                                BUN_RUNTIME_TRANSPILER_CACHE_PATH=str(self.base / "bun"),
-                                PYTHONDONTWRITEBYTECODE="1", GIT_MASTER="1")
+        self.environment.update(TMPDIR=str(self.base), PYTHONDONTWRITEBYTECODE="1")
 
     def cli(self, *args):
         return subprocess.run([sys.executable, "-B", str(ROOT / "tools/prepare-j715-audio-build.py"),
@@ -100,7 +98,7 @@ class AudioBuildTests(unittest.TestCase):
         self.assertEqual(command[command.index("--pull") + 1], "never")
         self.assertEqual(command[command.index("--network") + 1], "none")
         script = command[-1]
-        self.assertIn("PYTHONDONTWRITEBYTECODE=1 GIT_MASTER=1", script)
+        self.assertIn("PYTHONDONTWRITEBYTECODE=1;", script)
         if "make -C" in script:
             directory = Path(next(arg[:-5] for arg in command if arg.endswith(":/job")))
             component = next(c for c in self.contract["components"]

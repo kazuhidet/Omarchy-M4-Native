@@ -21,16 +21,22 @@
   "rust_version": "rustc 1.99.1",
   "rust_package_sha256": "23621e769f562a99ce339b49e755f2e8bf222581cd9d5b1a2d93136e3959c341",
   "integration_sources": {
-    "tools/build-j715-native-audio.py": "fc984f7281cfb9beafb1dc9bc285467607018107ed3b6c1fab82546f90486162",
-    "tools/j715_native_audio_receipt.py": "d768d72669fda4ff3091c99e9123918a3835307e3bb68bd8bc389c619425f94b"
+    "tools/build-j715-native-audio.py": "9a2dba935ba4d231f204a661bf221b92539348209c9aafa72d9fd48ba361087d",
+    "tools/j715_native_audio_receipt.py": "7ac474227dba1fcc510af02e3faaeac43d382c4e3ab6b04c9d7fe3c30dca665d"
   },
   "inherited_inputs": {
     "audio/j715/build-contract.json": "81a2b9a726fcee8c545fd2e7dba1256b31eacb1a01aac4d22e23c7c6b9e6eb12",
     "audio/j715/source-lock.json": "3f1c66bd70b595e34773ecb14beb901994561d29ba92f2b56ab61220f80e17d5",
-    "tools/prepare-j715-audio-build.py": "7d6ffd6a2c716f96cf6d8f21cedf8646723b87415c7d6d76ea6166a0821fec70",
-    "tools/j715_sources.py": "b645d0f42c1d96a3ac5710a0f05e1f2cd9b920b2c7dd51e9c8e3af903e5f87a0"
+    "tools/prepare-j715-audio-build.py": "c5f5b5f3824d0218cbc864de6e349e916db25b293fbc4532b7e3bd77d79f8c2f",
+    "tools/j715_sources.py": "5a5250072650e7afe55ddb461c7836e1384d9c41273ca139facbcca438476c99"
   },
-  "needed": ["libasound.so.2", "libgcc_s.so.1", "libm.so.6", "libc.so.6", "ld-linux-aarch64.so.1"],
+  "needed": [
+    "libasound.so.2",
+    "libgcc_s.so.1",
+    "libm.so.6",
+    "libc.so.6",
+    "ld-linux-aarch64.so.1"
+  ],
   "host_helpers": {
     "scripts/basic/fixdep": "24447e94a27c4bb1ac035282c7655123dd0ea8427f650879d1990facf75e6f84",
     "scripts/mod/modpost": "cb82c2ca1f24559a11840ba32d5b58c9bd2419228f8aafdc7e88cc80eed1cf79"
@@ -48,12 +54,31 @@
     "rust:bin/cargo": "1413eaba459793fcc99b90daa9449a385b9a69dd8d1f2f9d83512c6193d3040a"
   },
   "abi_files": {
-    "usr/lib/libasound.so": {"symlink": "libasound.so.2.0.0"},
-    "usr/lib/libasound.so.2": {"symlink": "libasound.so.2.0.0"},
-    "usr/lib/libasound.so.2.0.0": {"size": 1116792, "sha256": "5ab60457a31f4f47ff5bfa9d6541631828eb826e71bd49672949b4444b4ff92e"},
-    "usr/lib/libgcc_s.so.1": {"size": 133352, "sha256": "ac598673a4bf67c0295b6609e46b1fafd0d4adf3f80a513d61ac49ecff772e48"},
-    "usr/lib/libm.so.6": {"size": 788960, "sha256": "71ed8de709c40acd4fd0177258fc71251a5acdb1d075122409ad42529d6c7a4e"},
-    "usr/lib/libc.so.6": {"size": 1853736, "sha256": "6ab264fb4e8df9942b0fb75b48fcd5c30b2f081d8dfaa6c25d7be1d3fce5b2ab"},
-    "usr/lib/ld-linux-aarch64.so.1": {"size": 201832, "sha256": "b1f2738bdb51e6419d7062f96c8a44bd68853698dc5ac624fa6ca9f9b03d456d"}
+    "usr/lib/libasound.so": {
+      "symlink": "libasound.so.2.0.0"
+    },
+    "usr/lib/libasound.so.2": {
+      "symlink": "libasound.so.2.0.0"
+    },
+    "usr/lib/libasound.so.2.0.0": {
+      "size": 1116792,
+      "sha256": "5ab60457a31f4f47ff5bfa9d6541631828eb826e71bd49672949b4444b4ff92e"
+    },
+    "usr/lib/libgcc_s.so.1": {
+      "size": 133352,
+      "sha256": "ac598673a4bf67c0295b6609e46b1fafd0d4adf3f80a513d61ac49ecff772e48"
+    },
+    "usr/lib/libm.so.6": {
+      "size": 788960,
+      "sha256": "71ed8de709c40acd4fd0177258fc71251a5acdb1d075122409ad42529d6c7a4e"
+    },
+    "usr/lib/libc.so.6": {
+      "size": 1853736,
+      "sha256": "6ab264fb4e8df9942b0fb75b48fcd5c30b2f081d8dfaa6c25d7be1d3fce5b2ab"
+    },
+    "usr/lib/ld-linux-aarch64.so.1": {
+      "size": 201832,
+      "sha256": "b1f2738bdb51e6419d7062f96c8a44bd68853698dc5ac624fa6ca9f9b03d456d"
+    }
   }
 }

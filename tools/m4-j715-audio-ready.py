@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 KB2UKA
+# Copyright (c) 2026 KB2UKA, Audrey Tang
 """Observe J715 protection using the retained owner's publication/stop lifecycle."""
 import importlib.util
 import json
