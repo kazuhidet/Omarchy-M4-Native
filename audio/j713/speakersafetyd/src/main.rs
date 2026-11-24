@@ -13,7 +13,7 @@ use std::panic::{catch_unwind, resume_unwind};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use clap::Parser;
 use clap_verbosity_flag::{InfoLevel, Verbosity};
@@ -78,6 +78,56 @@ impl Default for SpeakerGroup {
         Self {
             speakers: Default::default(),
             gain: f32::NAN,
+        }
+    }
+}
+
+/// #132: re-arm J713 protection in this process after a stale period or a
+/// capture overrun. Releasing Speaker Volume Unlock forces the speaker group
+/// LOW before anything else. Past the recovery budget this panics, as before.
+/// The thermal model keeps its state and is not advanced while the group is
+/// LOW, so it can only overestimate the coil temperature.
+fn j713_recover(ctl: &alsa::ctl::Ctl, pcm: &alsa::pcm::PCM, unlock: &types::Elem,
+                lease: &mut j713::Lease, recovery: &mut j713::Recovery,
+                sigquit: &AtomicBool, reason: &str) {
+    unlock.release(ctl);
+    if !recovery.admit(Instant::now()) {
+        panic!("J713 stale capture backlog/read: recovery limit reached ({})", reason);
+    }
+    warn!("J713 protection cut off ({}); re-arming, {} of {} in {} min",
+          reason, recovery.count(), j713::RECOVERY_LIMIT, j713::RECOVERY_WINDOW.as_secs() / 60);
+    let _ = pcm.drop();
+    let until = Instant::now() + j713::RECOVERY_COOLDOWN;
+    while Instant::now() < until {
+        if sigquit.load(Ordering::Relaxed) {
+            panic!("SIGQUIT received");
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    // Prepare once while nobody owns protection: the kernel finishes the cancelled
+    // generation's cleanup, turns the clocks off and stops the group. Stopping the group
+    // marks the control owner as cancelled, so this must happen before the claim below;
+    // it ends with EPERM because there is no owner yet.
+    j713_prepare(pcm, true, "J713 capture quiesce");
+    unlock.claim(ctl);
+    lease.reset();
+    j713_prepare(pcm, false, "J713 capture re-arm");
+    info!("J713 protection re-armed; waiting for a new generation");
+}
+
+/// Prepare capture, retrying while the kernel refuses with EBUSY because the other
+/// direction is still stopping. With `unowned`, EPERM (no owner) is the expected end.
+fn j713_prepare(pcm: &alsa::pcm::PCM, unowned: bool, what: &str) {
+    let mut tries = 0;
+    loop {
+        match pcm.prepare() {
+            Ok(()) => return,
+            Err(e) if unowned && e.errno() == libc::EPERM => return,
+            Err(e) if e.errno() == libc::EBUSY && tries < 20 => {
+                tries += 1;
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Err(e) => panic!("{}: {}", what, e),
         }
     }
 }
@@ -257,6 +307,7 @@ fn main() {
         buf.resize(globals.period * globals.channels, 0i16);
 
         let mut once_nominal = false;
+        let mut recovery = j713::Recovery::default();
 
         loop {
             if sigquit.load(Ordering::Relaxed) {
@@ -273,6 +324,13 @@ fn main() {
                 Err(e) => {
                     if sigquit.load(Ordering::Relaxed) {
                         panic!("SIGQUIT received");
+                    }
+                    if j713 && e.errno() == libc::EPIPE {
+                        // A cutoff or an overrun stopped capture (#132).
+                        j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, lease.as_mut().unwrap(),
+                                     &mut recovery, &sigquit, "capture stopped");
+                        last_update = Instant::now();
+                        continue;
                     }
                     if !j713 && e.errno() == libc::ESTRPIPE {
                         warn!("Suspend detected!");
@@ -303,6 +361,14 @@ fn main() {
 
             if read != globals.period {
                 warn!("Expected {} samples, got {}", globals.period, read);
+                if j713 {
+                    // A short read means capture stopped mid-period (an xrun); the next call
+                    // would report EPIPE. Never model or renew from a partial period (#132).
+                    j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, lease.as_mut().unwrap(),
+                                 &mut recovery, &sigquit, "short capture read");
+                    last_update = Instant::now();
+                    continue;
+                }
             }
 
             if sigquit.load(Ordering::Relaxed) {
@@ -319,11 +385,39 @@ fn main() {
             }
 
             if let Some(l) = lease.as_mut() {
-                let available = pcm.as_ref().unwrap().avail().expect("J713 capture availability");
-                if !l.period(&ctl, epoch.unwrap(), read, available, cur_sample_rate, buf_read) {
-                    // Never model or renew from a generation boundary or old queued frames.
-                    last_update = Instant::now();
-                    continue;
+                let available = match pcm.as_ref().unwrap().avail() {
+                    Ok(a) => a,
+                    Err(e) if e.errno() == libc::EPIPE => {
+                        // Capture stopped right after a full read (#132).
+                        j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, l,
+                                     &mut recovery, &sigquit, "capture stopped");
+                        last_update = Instant::now();
+                        continue;
+                    }
+                    Err(e) => panic!("J713 capture availability: {}", e),
+                };
+                match l.period(&ctl, epoch.unwrap(), read, available, cur_sample_rate, buf_read) {
+                    j713::Period::Fresh => {}
+                    j713::Period::Skip => {
+                        // Never model or renew from a generation boundary or old queued frames.
+                        last_update = Instant::now();
+                        continue;
+                    }
+                    j713::Period::Stale => {
+                        // The samples are late, not wrong: model them so the coil estimate
+                        // includes them, but renew nothing from them.
+                        if cur_sample_rate == 48000 {
+                            for group in groups.values_mut() {
+                                for s in &mut group.speakers {
+                                    j713::model_gain(buf_read, |block| s.run_model(block, cur_sample_rate as f32));
+                                }
+                            }
+                        }
+                        j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, l,
+                                     &mut recovery, &sigquit, "stale capture backlog/read");
+                        last_update = Instant::now();
+                        continue;
+                    }
                 }
             }
 
@@ -391,7 +485,16 @@ fn main() {
             }
 
             if let Some(l) = lease.as_mut() {
-                l.renew(&ctl, pcm.as_ref().unwrap().avail().expect("J713 renewal availability"));
+                match pcm.as_ref().unwrap().avail() {
+                    Ok(available) => l.renew(&ctl, available),
+                    Err(e) if e.errno() == libc::EPIPE => {
+                        // Capture stopped while this period was modelled: renew nothing (#132).
+                        j713_recover(&ctl, pcm.as_ref().unwrap(), &unlock_elem, l,
+                                     &mut recovery, &sigquit, "capture stopped");
+                        last_update = Instant::now();
+                    }
+                    Err(e) => panic!("J713 renewal availability: {}", e),
+                }
             } else {
                 unlock_elem.write_int(&ctl, UNLOCK_MAGIC);
             }
