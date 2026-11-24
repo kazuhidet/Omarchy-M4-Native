@@ -169,6 +169,9 @@ class HardeningPackageTests(unittest.TestCase):
             write_size(root, module, size)
             files[module] = (0o644, digest)
         files[MCA_DROP_IN] = (0o644, sha(mca_drop))
+        files[CHECK.WQ_CPUMASK_TOOL] = (0o755, sha((ROOT / 'tools/m4-wq-cpumask.sh').read_bytes()))
+        files[CHECK.WQ_CPUMASK_UNIT] = (
+            0o644, sha((ROOT / 'packaging/omarchy-m4/omarchy-m4-speaker/m4-wq-cpumask.service').read_bytes()))
         return root, files
 
     def kernel_package(self, files, info=None, root=None):
