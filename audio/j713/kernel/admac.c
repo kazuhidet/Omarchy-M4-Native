@@ -1109,7 +1109,7 @@ static int j713_admac_rx_configure(struct dma_chan *chan,
  unsigned long flags;
  u32 bus, fifo, base, size, block, i, control;
  int ret;
- if (!of_machine_is_compatible("apple,j713") || !config ||
+ if (!of_machine_is_compatible(M4_BOARD) || !config ||
      config->direction != DMA_DEV_TO_MEM ||
      config->src_addr_width != DMA_SLAVE_BUSWIDTH_2_BYTES ||
      config->src_port_window_size != 1 || config->device_fc ||
@@ -1181,7 +1181,7 @@ int j713_admac_rx_ready(struct dma_chan *chan)
  ch = &ad->channels[1];
  spin_lock_irqsave(&ch->lock, flags);
  ret = -EPERM;
- if (!of_machine_is_compatible("apple,j713") || ad->rx_diag_failed || !ad->rx_diag_configured)
+ if (!of_machine_is_compatible(M4_BOARD) || ad->rx_diag_failed || !ad->rx_diag_configured)
   goto out;
  if (readl(ch->regs + REG_BUS_WIDTH) != 0x00000f01 ||
      readl(ch->regs + REG_CHAN_FIFOCTL) != 0x00000180) {

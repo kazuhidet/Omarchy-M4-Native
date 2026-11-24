@@ -64,7 +64,7 @@ static int j713_lease_put(struct snd_kcontrol *k, struct snd_ctl_elem_value *v)
 		if (child->count != 1 || child->vd[0].owner != ma->speaker_lock_owner) goto out;
 		found++;
 	}
-	if (found != 8) goto out;
+	if (found != 2 * M4_NAMP) goto out;
 	ret = j713_audio_renew(ma->j713_group, ma->speaker_lock_owner,
 		v->value.integer64.value[0], v->value.integer64.value[1]);
 out:
@@ -97,7 +97,7 @@ static int j713_fe_startup(struct snd_pcm_substream *s)
 {
 	int ret = snd_pcm_hw_constraint_single(s->runtime, SNDRV_PCM_HW_PARAM_RATE, 48000);
 	if (!ret) ret = snd_pcm_hw_constraint_single(s->runtime, SNDRV_PCM_HW_PARAM_CHANNELS,
-						   s->stream ? 8 : 4);
+						   s->stream ? M4_RX_CH : M4_TX_CH);
 	if (!ret) ret = snd_pcm_hw_constraint_mask64(s->runtime, SNDRV_PCM_HW_PARAM_FORMAT,
 						   s->stream ? SNDRV_PCM_FMTBIT_S16_LE : SNDRV_PCM_FMTBIT_S32_LE);
 	return ret;
@@ -105,7 +105,7 @@ static int j713_fe_startup(struct snd_pcm_substream *s)
 static int j713_fe_params(struct snd_pcm_substream *s, struct snd_pcm_hw_params *p)
 {
 	struct macaudio_snd_data *ma = snd_soc_card_get_drvdata(snd_soc_substream_to_rtd(s)->card);
-	if (params_rate(p) != 48000 || params_channels(p) != (s->stream ? 8 : 4) ||
+	if (params_rate(p) != 48000 || params_channels(p) != (s->stream ? M4_RX_CH : M4_TX_CH) ||
 	    params_format(p) != (s->stream ? SNDRV_PCM_FORMAT_S16_LE : SNDRV_PCM_FORMAT_S32_LE)) return -EINVAL;
 	/* This control describes the protected feedback stream, including idle MUTE. */
 	if (s->stream) ma->speaker_sample_rate = 48000;
@@ -135,25 +135,25 @@ static const struct snd_soc_dapm_widget j713_card_widgets[] = {
 };
 static const struct snd_soc_dapm_route j713_card_routes[] = {
 	{ "I2S0 TX", NULL, "PCM0 TX" },
-	{ "Speaker", NULL, "Left Woofer OUT" }, { "Speaker", NULL, "Right Woofer OUT" },
+	M4_WOOFER_ROUTES
 	{ "Speaker", NULL, "Left Tweeter OUT" }, { "Speaker", NULL, "Right Tweeter OUT" },
 	{ "I2S0 RX", NULL, "Speaker Feedback" }, { "PCM0 RX", NULL, "I2S0 RX" },
 };
 struct j713_links {
 	struct snd_soc_dai_link link[2];
-	struct snd_soc_dai_link_component cpu[2], platform, dummy, codec[4];
-	struct snd_soc_codec_conf conf[4];
+	struct snd_soc_dai_link_component cpu[2], platform, dummy, codec[M4_NAMP];
+	struct snd_soc_codec_conf conf[M4_NAMP];
 };
 static void j713_put_nodes(void *data)
 {
 	struct j713_links *links = data;
 	unsigned int i;
 	of_node_put(links->cpu[0].of_node);
-	for (i = 0; i < 4; i++) of_node_put(links->codec[i].of_node);
+	for (i = 0; i < M4_NAMP; i++) of_node_put(links->codec[i].of_node);
 }
 static int j713_card_probe(struct snd_soc_card *card)
 {
-	strscpy(card->snd_card->id, "AppleJ713", sizeof(card->snd_card->id));
+	strscpy(card->snd_card->id, M4_CARD_ID, sizeof(card->snd_card->id));
 	return 0;
 }
 static int macaudio_j713_probe(struct platform_device *pdev)
@@ -161,11 +161,11 @@ static int macaudio_j713_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct macaudio_snd_data *ma;
 	struct j713_links *links;
-	static const char * const prefixes[] = { "Left Woofer", "Right Woofer", "Left Tweeter", "Right Tweeter" };
-	static const unsigned int addresses[] = {0x38,0x3b,0x39,0x3c};
+	static const char * const prefixes[M4_NAMP] = M4_PREFIXES;
+	static const unsigned int addresses[M4_NAMP] = M4_ADDRESSES;
 	unsigned int i, addr;
 	int ret;
-	if (!of_machine_is_compatible("apple,j713") || !of_machine_is_compatible("apple,t8132")) return -ENODEV;
+	if (!of_machine_is_compatible(M4_BOARD) || !of_machine_is_compatible("apple,t8132")) return -ENODEV;
 	ma = devm_kzalloc(dev, sizeof(*ma), GFP_KERNEL);
 	links = devm_kzalloc(dev, sizeof(*links), GFP_KERNEL);
 	if (!ma || !links) return -ENOMEM;
@@ -182,7 +182,7 @@ static int macaudio_j713_probe(struct platform_device *pdev)
 	links->cpu[1].dai_name = "mca-i2s-0";
 	links->platform.of_node = links->cpu[0].of_node;
 	links->dummy = (struct snd_soc_dai_link_component){ .name = "snd-soc-dummy", .dai_name = "snd-soc-dummy-dai" };
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < M4_NAMP; i++) {
 		links->codec[i].of_node = of_parse_phandle(dev->of_node, "apple,codecs", i);
 		if (!links->codec[i].of_node || !of_device_is_compatible(links->codec[i].of_node, "ti,sn012776") ||
 		    of_property_read_u32(links->codec[i].of_node, "reg", &addr) || addr != addresses[i]) return -EINVAL;
@@ -201,13 +201,13 @@ static int macaudio_j713_probe(struct platform_device *pdev)
 	links->link[1] = (struct snd_soc_dai_link){
 		.name = "Speakers", .stream_name = "Speakers", .no_pcm = 1,
 		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_IF | SND_SOC_DAIFMT_CBC_CFC,
-		.cpus = &links->cpu[1], .num_cpus = 1, .codecs = links->codec, .num_codecs = 4,
+		.cpus = &links->cpu[1], .num_cpus = 1, .codecs = links->codec, .num_codecs = M4_NAMP,
 	};
 	ma->card = (struct snd_soc_card){
-		.name = "Apple J713", .long_name = "Apple J713", .driver_name = "macaudio",
+		.name = M4_CARD_NAME, .long_name = M4_CARD_NAME, .driver_name = "macaudio",
 		.owner = THIS_MODULE, .dev = dev, .dai_link = links->link, .num_links = 2,
 		.probe = j713_card_probe,
-		.codec_conf = links->conf, .num_configs = 4,
+		.codec_conf = links->conf, .num_configs = M4_NAMP,
 		.component_chaining = true, .fully_routed = true,
 		.controls = j713_card_controls, .num_controls = ARRAY_SIZE(j713_card_controls),
 		.dapm_widgets = j713_card_widgets, .num_dapm_widgets = ARRAY_SIZE(j713_card_widgets),

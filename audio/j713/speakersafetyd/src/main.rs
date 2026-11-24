@@ -136,7 +136,7 @@ fn main() {
     cfg.load(config_path).expect("Failed to read config file");
 
     let globals = types::Globals::parse(&cfg);
-    let j713 = machine == "apple,j713";
+    let j713 = machine == j713::MACHINE;
 
     if globals.uclamp_min.is_some() || globals.uclamp_max.is_some() {
         uclamp::set_uclamp(

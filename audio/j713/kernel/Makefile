@@ -9,3 +9,7 @@ obj-m += snd-soc-apple-mca.o apple-admac.o
 snd-soc-apple-mca-y := mca.o
 apple-admac-y := admac.o
 ccflags-y += -I$(srctree)/drivers/dma
+ccflags-y += -include $(src)/m4-audio-board.h
+ifeq ($(M4_BOARD),j715)
+ccflags-y += -DM4_AUDIO_J715
+endif
